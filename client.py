@@ -41,12 +41,13 @@ class PhraseObject:
                           self.phrase[i], curses.A_UNDERLINE)
             while True:
                 key = stdscr.getch()
-                total_characters_typed += 1
-                if key == ord(self.phrase[i]):
-                    correct_characters_typed += 1
-                    stdscr.addstr(self.y + 2, self.x + i + 1, " ")
-                    stdscr.refresh()
-                    break
+                if key != -1:
+                    total_characters_typed += 1
+                    if key == ord(self.phrase[i]):
+                        correct_characters_typed += 1
+                        stdscr.addstr(self.y + 2, self.x + i + 1, " ")
+                        stdscr.refresh()
+                        break
         end_time = time.time()
 
         stdscr.addstr(self.y + 1, self.x + 1, self.phrase, curses.A_REVERSE)
@@ -171,6 +172,7 @@ def play(stdscr):
 
 def main(stdscr):
     curses.curs_set(0)
+    stdscr.nodelay(True)
     state = GameState.MAIN_MENU
 
     while state != GameState.EXIT:
