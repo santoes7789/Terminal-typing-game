@@ -1,9 +1,55 @@
 import utils
 import curses
+from curses.textpad import rectangle
 import config
 import socket
 
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+def join(stdscr):
+    utils.clear(stdscr)
+
+    start_x = config.SCREEN_WIDTH//2 - 15
+    stdscr.addstr(11, start_x, "ip address:")
+
+    rectangle(stdscr, 12, start_x, 14, start_x + 30)
+    stdscr.refresh()
+
+    ip = ""
+
+    selected = 1
+
+    while True:
+        stdscr.addstr(15, start_x, "cancel",
+                      curses.A_STANDOUT if selected == 0 else curses.A_NORMAL)
+        stdscr.addstr(15, start_x + 15, "connect",
+                      curses.A_STANDOUT if selected == 1 else curses.A_NORMAL)
+
+        key = stdscr.getch()
+        if key != -1:
+            if key == curses.KEY_BACKSPACE:
+                stdscr.addstr(13, start_x + max(1, len(ip)), " ")
+                ip = ip[:len(ip) - 1]
+            elif key == curses.KEY_RIGHT:
+                selected = 1
+            elif key == curses.KEY_LEFT:
+                selected = 0
+            elif key == 10:
+                if selected:
+                    pass
+                else:
+                    return utils.GameState.MAIN_MENU
+            else:
+                ip += chr(key)
+            stdscr.addstr(13, start_x + 1, ip)
+            stdscr.refresh()
+
+    try:
+        lsock.connect((ip, config.PORT))
+        utils.send_message(lsock, config.USERNAME)
+    except ConnectionRefusedError:
+        return utils.GameState.MAIN_MENU
 
 
 def multiplayer_menu(stdscr):
@@ -29,14 +75,9 @@ def multiplayer_menu(stdscr):
         elif key == 10 or key == 32:  # enter or space
             break
 
-    ip = "127.0.0.1"
     # join
     if selected == 1:
-        try:
-            lsock.connect((ip, config.PORT))
-            utils.send_message(lsock, config.USERNAME)
-        except ConnectionRefusedError:
-            return utils.GameState.MAIN_MENU
+        return join(stdscr)
     elif selected == 0:
         # host
         pass
