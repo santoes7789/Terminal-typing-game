@@ -84,23 +84,15 @@ def score_screen(stdscr):
         4, 4, "Your typing speed was: {:.0f} WPM".format(typing_speed))
     stdscr.addstr(5, 4, "Your accuracy was: {:.2f}%".format(accuracy))
 
-    start_text = "play again"
-    exit_text = "main menu"
-    selected = 1
+    start_btn = utils.Option(30, config.SCREEN_HEIGHT//2, "play again")
+    exit_btn = utils.Option(5, config.SCREEN_HEIGHT//2, "main menu")
 
+    option_select = utils.OptionSelect(stdscr,
+                                       [exit_btn, start_btn],
+                                       selected=1)
     while True:
-        stdscr.addstr(15, (config.SCREEN_WIDTH//2 - len(exit_text) //
-                      2 - 7 + config.BORDER), exit_text,
-                      curses.A_NORMAL if selected != 0 else curses.A_STANDOUT)
-        stdscr.addstr(15, (config.SCREEN_WIDTH//2 - len(start_text) //
-                      2 + 7 + config.BORDER), start_text,
-                      curses.A_NORMAL if selected != 1 else curses.A_STANDOUT)
-        key = stdscr.getch()
-        if key == curses.KEY_LEFT:
-            selected = 0
-        elif key == curses.KEY_RIGHT:
-            selected = 1
-        elif key == 10 or key == 32:  # enter or space
+        selected = option_select.update_loop(stdscr)
+        if selected != -1:
             break
 
     if selected == 1:

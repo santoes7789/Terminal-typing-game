@@ -20,35 +20,34 @@ def join(stdscr):
 
     selected = 1
 
-    while True:
-        stdscr.addstr(15, start_x, "cancel",
-                      curses.A_STANDOUT if selected == 0 else curses.A_NORMAL)
-        stdscr.addstr(15, start_x + 15, "connect",
-                      curses.A_STANDOUT if selected == 1 else curses.A_NORMAL)
+    cancel_btn = utils.Option(start_x, 15, "cancel")
+    connect_btn = utils.Option(start_x + 15, 15, "connect")
 
+    option_select = utils.OptionSelect(stdscr,
+                                       [cancel_btn, connect_btn], selected=1)
+
+    while True:
         key = stdscr.getch()
-        if key != -1:
+        selected = option_select.update_loop(stdscr, _key=key)
+        if selected != -1:
+            break
+        if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
             if key == curses.KEY_BACKSPACE:
                 stdscr.addstr(13, start_x + max(1, len(ip)), " ")
                 ip = ip[:len(ip) - 1]
-            elif key == curses.KEY_RIGHT:
-                selected = 1
-            elif key == curses.KEY_LEFT:
-                selected = 0
-            elif key == 10:
-                if selected:
-                    pass
-                else:
-                    return utils.GameState.MAIN_MENU
-            else:
+            elif chr(key).isnumeric() or chr(key) == ".":
                 ip += chr(key)
             stdscr.addstr(13, start_x + 1, ip)
             stdscr.refresh()
 
-    try:
-        lsock.connect((ip, config.PORT))
+    # this is still broken
+    if selected:
+        try:
+            lsock.connect((ip, config.PORT))
+        except Exception:
+            return utils.GameState.MAIN_MENU
         utils.send_message(lsock, config.USERNAME)
-    except ConnectionRefusedError:
+    else:
         return utils.GameState.MAIN_MENU
 
 

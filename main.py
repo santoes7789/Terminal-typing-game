@@ -11,25 +11,18 @@ def main_menu(stdscr):
     stdscr.addstr(9, (config.SCREEN_WIDTH//2 -
                   len(title)//2 + config.BORDER), title)
 
-    start_text = "play"
-    exit_text = "exit"
-    multiplayer_text = "multiplayer"
-    selected = 1
+    start_btn = utils.Option(config.SCREEN_WIDTH//2, 12, "play")
+    multiplayer_btn = utils.Option(config.SCREEN_WIDTH//2, 13, "multiplayer")
+    exit_btn = utils.Option(config.SCREEN_WIDTH//2, 14, "exit")
 
+    option_select = utils.OptionSelect(stdscr,
+                                       [start_btn, multiplayer_btn, exit_btn])
+
+    # this for some reason feels like really bad code
+    # but i don't know how else to making it unblocking
     while True:
-        stdscr.addstr(12, (config.SCREEN_WIDTH//2-len(start_text)//2) + config.BORDER,
-                      start_text, curses.A_STANDOUT if selected == 0 else curses.A_NORMAL)
-        stdscr.addstr(13, (config.SCREEN_WIDTH//2-len(multiplayer_text)//2) + config.BORDER,
-                      multiplayer_text, curses.A_STANDOUT if selected == 1 else curses.A_NORMAL)
-        stdscr.addstr(14, (config.SCREEN_WIDTH//2-len(exit_text)//2) + config.BORDER,
-                      exit_text, curses.A_STANDOUT if selected == 2 else curses.A_NORMAL)
-        key = stdscr.getch()
-
-        if key == curses.KEY_DOWN:
-            selected = min(2, selected + 1)
-        elif key == curses.KEY_UP:
-            selected = max(0, selected - 1)
-        elif key == 10 or key == 32:  # enter or space
+        selected = option_select.update_loop(stdscr)
+        if selected != -1:
             break
 
     if selected == 0:
