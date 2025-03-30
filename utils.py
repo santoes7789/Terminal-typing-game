@@ -52,10 +52,37 @@ class OptionSelect():
         return -1
 
 
-def send_message(lsock, message):
-    msg = message.encode("utf-8")
-    msg_length = len(msg)
-    lsock.sendall(struct.pack("!I", msg_length) + msg)
+def send_message(lsock, message, encode=False):
+    if encode:
+        message = message.encode("utf-8")
+    msg_length = len(message)
+
+    try:
+        lsock.sendall(struct.pack("!I", msg_length) + message)
+    except Exception as e:
+        raise e
+
+
+def parse_message(lsock):
+    try:
+        msg_length = lsock.recv(4)
+    except Exception as e:
+        raise e
+
+    if not msg_length:
+        raise ConnectionResetError
+
+    bytes_to_read = struct.unpack("!I", msg_length)[0]
+
+    try:
+        recv_data = lsock.recv(bytes_to_read)
+    except Exception as e:
+        raise e
+
+    if not recv_data:
+        raise ConnectionResetError
+
+    return recv_data
 
 
 def clear(stdscr):

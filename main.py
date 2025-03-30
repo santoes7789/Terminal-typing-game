@@ -46,7 +46,7 @@ def main(stdscr):
         elif state == utils.GameState.MULTIPLAYER:
             state = multiplayer.multiplayer_menu(stdscr)
         elif state == utils.GameState.LOBBY:
-            state == multiplayer.lobby(stdscr)
+            state = multiplayer.lobby(stdscr)
 
 
 curses.wrapper(main)

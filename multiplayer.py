@@ -3,11 +3,21 @@ import curses
 from curses.textpad import rectangle
 import config
 import socket
+import select
 
-lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+lsock = None
+
+# When user joins, send neccessary data with it, i.e username
+# Possible requests lobby phase:
+#  - Retrieve player list
+#  - Send message
 
 
 def join(stdscr):
+
+    global lsock
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     utils.clear(stdscr)
 
     start_x = config.SCREEN_WIDTH//2 - 15
@@ -33,8 +43,8 @@ def join(stdscr):
             break
         if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
             if key == curses.KEY_BACKSPACE:
-                stdscr.addstr(13, start_x + max(1, len(ip)), " ")
-                ip = ip[:len(ip) - 1]
+                stdscr.addstr(13, start_x + 1, " " * 30)
+                ip = ip[:-1]
             elif chr(key).isnumeric() or chr(key) == ".":
                 ip += chr(key)
             stdscr.addstr(13, start_x + 1, ip)
@@ -46,7 +56,9 @@ def join(stdscr):
             lsock.connect((ip, config.PORT))
         except Exception:
             return utils.GameState.MAIN_MENU
-        utils.send_message(lsock, config.USERNAME)
+
+        utils.send_message(lsock, config.USERNAME, encode=True)
+        return utils.GameState.LOBBY
     else:
         return utils.GameState.MAIN_MENU
 
@@ -80,11 +92,12 @@ def multiplayer_menu(stdscr):
     elif selected == 0:
         # host
         pass
-
-    return utils.GameState.LOBBY
+    return utils.GameState.EXIT
 
 
 def lobby(stdscr):
+
+    lsock.setblocking(False)
 
     utils.clear(stdscr)
 
@@ -101,24 +114,41 @@ def lobby(stdscr):
         config.CHAT_WIN_HEIGHT, config.CHAT_WIN_WIDTH,
         config.BORDER, config.PLAYER_WIN_WIDTH + 1)
 
+    msg_box_length = config.CHAT_WIN_WIDTH - 4
+    msg = ""
+    rectangle(chat_win, config.CHAT_WIN_HEIGHT - 4,
+              1, config.CHAT_WIN_HEIGHT - 2, msg_box_length + 2)
+
+    chat_win.keypad(True)
+    chat_win.nodelay(True)
     chat_win.box()
     chat_win.refresh()
 
-    try:
-        while True:
-            data = lsock.recv(1024)
-            if data == b"":
-                break
-            message = data.decode("utf-8")
+    while True:
+        key = chat_win.getch()
+        if key != -1:
+            if key == curses.KEY_BACKSPACE:
+                msg = msg[:-1]
+            elif key == 10:
+                utils.send_message(lsock, "m" + msg, encode=True)
+                msg = ""
+            elif len(msg) < msg_box_length:
+                msg += chr(key)
+            chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2,
+                            " " * msg_box_length)
+            chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2, msg)
+
+        read_ready, _, _ = select.select([lsock], [], [], 0)
+
+        if read_ready:
+            try:
+                message = utils.parse_message(lsock).decode("utf-8")
+            except Exception:
+                return utils.GameState.MAIN_MENU
+
             messages.append(message)
-            if len(messages) > config.PLAYER_WIN_HEIGHT - 2:
+            if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
                 messages.pop(0)
             for i in range(len(messages)):
                 chat_win.addstr(i + 1, 1, messages[i])
-            chat_win.refresh()
-    except KeyboardInterrupt:
-        print("\nCaught keyboard interrupt, exiting")
-        lsock.close()
-    finally:
-        print("Closing socket")
-        lsock.close()
+                chat_win.refresh()
