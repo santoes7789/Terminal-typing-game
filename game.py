@@ -1,6 +1,5 @@
 import utils
 import config
-
 import time
 import curses
 import random
@@ -33,6 +32,12 @@ class PhraseObject:
         stdscr.addstr(self.y + 2, self.x + 1, self.phrase)
         stdscr.refresh()
 
+    def undraw(self, stdscr):
+
+        for i in range(4):
+            stdscr.addstr(self.y + i, self.x, " " * (len(self.phrase) + 2))
+        stdscr.refresh()
+
     def anim_finish(self, stdscr):
         self.time += time.time() - self.lasttime
         self.lasttime = time.time()
@@ -55,6 +60,7 @@ class PhraseObject:
                           len(self.phrase), curses.A_REVERSE)
             return 0
         elif self.time < 0.28:
+            self.undraw(stdscr)
             return 1
         return 0
 
