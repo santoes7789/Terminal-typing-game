@@ -57,7 +57,7 @@ def join(stdscr):
         except Exception:
             return utils.GameState.MAIN_MENU
 
-        utils.send_message(lsock, config.USERNAME, encode=True)
+        utils.send_message(lsock, "n" + config.USERNAME, encode=True)
         return utils.GameState.LOBBY
     else:
         return utils.GameState.MAIN_MENU
@@ -124,6 +124,8 @@ def lobby(stdscr):
     chat_win.box()
     chat_win.refresh()
 
+    utils.send_message(lsock, "p", encode=True)
+
     while True:
         key = chat_win.getch()
         if key != -1:
@@ -142,13 +144,19 @@ def lobby(stdscr):
 
         if read_ready:
             try:
-                message = utils.parse_message(lsock).decode("utf-8")
+                prefx, recv = utils.parse_message(lsock)
             except Exception:
                 return utils.GameState.MAIN_MENU
 
-            messages.append(message)
-            if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
-                messages.pop(0)
-            for i in range(len(messages)):
-                chat_win.addstr(i + 1, 1, messages[i])
-                chat_win.refresh()
+            if prefx == "m":
+                messages.append(recv)
+                if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
+                    messages.pop(0)
+                for i, message in enumerate(messages):
+                    chat_win.addstr(i + 1, 1, message)
+                    chat_win.refresh()
+            elif prefx == "p":
+                players = recv.split("\n")
+                for i, name in enumerate(players):
+                    players_win.addstr(i + 1, 1, name)
+                    players_win.refresh()

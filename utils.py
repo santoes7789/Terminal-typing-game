@@ -82,7 +82,10 @@ def parse_message(lsock):
     if not recv_data:
         raise ConnectionResetError
 
-    return recv_data
+    recv_data = recv_data.decode("utf-8")
+    prefix = recv_data[0]
+    recv_data = recv_data[1:]
+    return prefix, recv_data
 
 
 def clear(stdscr):

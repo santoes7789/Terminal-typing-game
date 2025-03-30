@@ -17,7 +17,6 @@ class Connection:
         self.sock = sock
         self.addr = addr
         self.onrecv = onrecv
-        self.read_buffer = b""
         self.write_buffer = b""
         self.name = ""
 
@@ -42,20 +41,15 @@ class Connection:
 
     def read(self):
         try:
-            recv_data = utils.parse_message(self.sock)
+            prefix, recv_data = utils.parse_message(self.sock)
         except Exception as e:
             print(e)
             self.close()
             return
+        print("Recieved from {}: ({}) {}".format(
+            self.addr, prefix, recv_data))
 
-        self.read_buffer = recv_data
-        print("Recieved from {}: {}".format(
-            self.addr, recv_data.decode("utf-8")))
-
-        if self.name:
-            self.onrecv(self)
-        else:
-            self.name = self.read_buffer
+        self.onrecv(self, prefix, recv_data)
 
     def process_events(self, mask):
         if mask & selectors.EVENT_WRITE:
@@ -78,19 +72,32 @@ lsock.setblocking(False)
 sel.register(lsock, selectors.EVENT_READ)
 
 
+def format_conns_list():
+    player_list = "p"
+    for conn in connections:
+        player_list += conn.name + "\n"
+    player_list = player_list[:-1]
+    return player_list.encode("utf-8")
+
+
 # message prefixes:
 # p -> client requests for full player list
 # m -> client sends message
-def on_receive_message(sender):
-    recv = sender.read_buffer.decode("utf-8")
-    prefix = recv[0]
-    recv = recv[1:]
+# n -> client request to set/change name
+
+
+def on_receive_message(sender, prefix, recv):
     if prefix == "p":
-        pass
+        # consider using json dump? maybe not i dont know
+        sender.write_buffer += format_conns_list()
     elif prefix == "m":
-        message = recv.encode("utf-8")
+        message = ("m" + recv).encode("utf-8")
         for conn in connections:
             conn.write_buffer += message
+    elif prefix == "n":
+        sender.name = recv
+        for conn in connections:
+            conn.write_buffer += format_conns_list()
 
 
 def accept_new_connection(sock):
