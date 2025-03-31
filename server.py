@@ -81,9 +81,14 @@ def format_conns_list():
 
 
 # message prefixes:
+# lobby:
 # p -> client requests for full player list
 # m -> client sends message
 # n -> client request to set/change name
+# s -> client requests to start game
+
+# game:
+# i -> client to tell what index of word they are on
 
 
 def on_receive_message(sender, prefix, recv):
@@ -98,6 +103,10 @@ def on_receive_message(sender, prefix, recv):
         sender.name = recv
         for conn in connections:
             conn.write_buffer += format_conns_list()
+    elif prefix == "s":
+        message = "s".encode("utf-8")
+        for conn in connections:
+            conn.write_buffer += message
 
 
 def accept_new_connection(sock):

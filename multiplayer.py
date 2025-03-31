@@ -175,23 +175,24 @@ def lobby(stdscr):
             elif active_win == settings_win:
                 if key == 10:
                     utils.send_message(lsock, "s", encode=True)
-                    return utils.GameState.PLAY
 
         if read_ready:
             try:
-                prefx, recv = utils.parse_message(lsock)
+                prefix, recv = utils.parse_message(lsock)
             except Exception:
                 return utils.GameState.MAIN_MENU
 
-            if prefx == "m":
+            if prefix == "m":
                 messages.append(recv)
                 if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
                     messages.pop(0)
                 for i, message in enumerate(messages):
                     chat_win.addstr(i + 1, 1, message)
                     chat_win.refresh()
-            elif prefx == "p":
+            elif prefix == "p":
                 players = recv.split("\n")
                 for i, name in enumerate(players):
                     players_win.addstr(i + 1, 1, name)
                     players_win.refresh()
+            elif prefix == "s":
+                return utils.GameState.PLAY
