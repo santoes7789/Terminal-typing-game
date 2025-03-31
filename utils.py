@@ -1,6 +1,7 @@
 import curses
 import config
 import struct
+import random
 from enum import Enum
 from curses.textpad import rectangle
 
@@ -86,6 +87,18 @@ def parse_message(lsock):
     prefix = recv_data[0]
     recv_data = recv_data[1:]
     return prefix, recv_data
+
+
+lines = []
+with open("word_bank", "r") as file:
+    content = file.read()
+sections = content.split("\n\n")
+for i in range(len(sections)):
+    lines.append(sections[i].split("\n"))
+
+
+def generate_rand_word(difficulty):
+    return random.choice(lines[difficulty]).strip()
 
 
 def clear(stdscr):

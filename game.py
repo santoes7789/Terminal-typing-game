@@ -11,79 +11,6 @@ typing_speed = 0
 accuracy = 0
 
 
-class PhraseObject:
-    def __init__(self, phrase, y, x):
-        self.phrase = phrase
-        self.x = x
-        self.y = y
-        self.index = 0
-        self.correct_characters_typed = 0
-        self.total_characters_typed = 0
-
-        self.blink = False
-        self.finished = False
-
-        self.time = 0
-        self.lasttime = time.time()
-
-    def draw(self, stdscr):
-        rectangle(stdscr, self.y, self.x, self.y +
-                  3, self.x + len(self.phrase) + 1)
-        stdscr.addstr(self.y + 1, self.x + 1, self.phrase, curses.A_BOLD)
-        stdscr.addstr(self.y + 2, self.x + 1, self.phrase)
-        stdscr.refresh()
-
-    def undraw(self, stdscr):
-        for i in range(4):
-            stdscr.addstr(self.y + i, self.x, " " * (len(self.phrase) + 2))
-        stdscr.refresh()
-
-    def anim_finish(self, stdscr):
-        self.time += time.time() - self.lasttime
-        self.lasttime = time.time()
-        stdscr.refresh()
-        if self.time < 0.07:
-            stdscr.addstr(self.y + 1, self.x + 1,
-                          self.phrase, curses.A_REVERSE)
-            stdscr.addstr(self.y + 2, self.x + 1, " " *
-                          len(self.phrase), curses.A_REVERSE)
-            return 0
-        elif self.time < 0.14:
-            stdscr.addstr(self.y + 1, self.x + 1, self.phrase, curses.A_DIM)
-            stdscr.addstr(self.y + 2, self.x + 1, " " *
-                          len(self.phrase), curses.A_DIM)
-            return 0
-        elif self.time < 0.21:
-            stdscr.addstr(self.y + 1, self.x + 1,
-                          self.phrase, curses.A_REVERSE)
-            stdscr.addstr(self.y + 2, self.x + 1, " " *
-                          len(self.phrase), curses.A_REVERSE)
-            return 0
-        elif self.time < 0.28:
-            self.undraw(stdscr)
-            return 1
-        return 0
-
-    def update(self, stdscr):
-        if not self.finished:
-            key = stdscr.getch()
-            if key != -1:
-                self.total_characters_typed += 1
-                if key == ord(self.phrase[self.index]):
-                    self.correct_characters_typed += 1
-                    stdscr.addstr(self.y + 2, self.x + self.index + 1, " ")
-                    self.index += 1
-                    if self.index == len(self.phrase):
-                        self.finished = True
-                        self.lasttime = time.time()
-                    else:
-                        stdscr.addstr(self.y + 2, self.x + self.index + 1,
-                                      self.phrase[self.index], curses.A_UNDERLINE)
-            return 0
-        else:
-            return self.anim_finish(stdscr)
-
-
 def score_screen(stdscr):
     utils.clear(stdscr)
     stdscr.addstr(
@@ -107,34 +34,65 @@ def score_screen(stdscr):
         return utils.GameState.MAIN_MENU
 
 
+def get_phrase(difficulty):
+    if multiplayer.lsock:
+        pass
+    else:
+        return utils.generate_rand_word(difficulty)
+
+
+def check_input(stdscr, phrase, i):
+    key = stdscr.getch()
+    if key == ord(phrase[i]):
+        return 1
+    return 0
+
+
 def play(stdscr):
     utils.clear(stdscr)
 
-    lines = []
-    with open("word_bank", "r") as file:
-        content = file.read()
-    sections = content.split("\n\n")
-    for i in range(len(sections)):
-        lines.append(sections[i].split("\n"))
-
-    difficulty = 1
     count = 0
+    index = 0
 
-    phrase = random.choice(lines[difficulty]).strip()
-    current_phrase = PhraseObject(phrase, 3, 3)
-    current_phrase.draw(stdscr)
-
+    # current_phrase = PhraseObject(utils.generate_rand_word(difficulty), 3, 3)
+    current_phrase = ""
     while True:
-        if current_phrase.update(stdscr):
-            if multiplayer.lsock:
-                utils.send_message(multiplayer.lsock, "g", encode=True)
-            count += 1
+        if not multiplayer.lsock:
             difficulty = time_trials(count)
             if difficulty == -1:
                 break
-            phrase = random.choice(lines[difficulty]).strip()
-            current_phrase = PhraseObject(phrase, 3, 3)
-            current_phrase.draw(stdscr)
+            current_phrase = get_phrase(difficulty)
+
+        # draw
+        y = 3
+        x = 3
+        rectangle(stdscr, y, x, y + 3, x + len(current_phrase) + 1)
+        stdscr.addstr(y + 1, x + 1, current_phrase, curses.A_BOLD)
+        stdscr.addstr(y + 2, x + 1, current_phrase)
+        stdscr.refresh()
+
+        while True:
+            if current_phrase:
+                if check_input(stdscr, current_phrase, index):
+                    stdscr.addstr(y + 2, x + 1 + index, " ")
+                    index += 1
+                    if index == len(current_phrase):
+                        index = 0
+                        count += 1
+                        if multiplayer.lsock:
+                            utils.send_message(
+                                multiplayer.lsock, "w", encode=True)
+                        break
+                    stdscr.addstr(y + 2, x + 1 + index,
+                                  current_phrase[index], curses.A_UNDERLINE)
+
+            if multiplayer.lsock:
+                if multiplayer.read_ready:
+                    prefix, message = utils.parse_message(multiplayer.lsock)
+                    if prefix == "w":
+                        current_phrase = message
+                        index = 0
+                        break
 
     return score_screen(stdscr)
 

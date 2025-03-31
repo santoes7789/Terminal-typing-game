@@ -107,6 +107,17 @@ def on_receive_message(sender, prefix, recv):
         message = "s".encode("utf-8")
         for conn in connections:
             conn.write_buffer += message
+            conn.write()
+
+        message = ("w" + utils.generate_rand_word(3)).encode("utf-8")
+        for conn in connections:
+            conn.write_buffer += message
+            conn.write()
+    elif prefix == "w":
+        message = ("w" + utils.generate_rand_word(3)).encode("utf-8")
+        for conn in connections:
+            conn.write_buffer += message
+            conn.write()
 
 
 def accept_new_connection(sock):
