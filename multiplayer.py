@@ -143,7 +143,6 @@ def lobby(stdscr):
     settings_win.box()
     settings_win.addstr(1, 1, "start")
     settings_win.refresh()
-    utils.send_message(lsock, "p", encode=True)
 
     active_win = chat_win
 
