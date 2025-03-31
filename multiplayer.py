@@ -4,13 +4,25 @@ from curses.textpad import rectangle
 import config
 import socket
 import select
+import threading
 
 lsock = None
-
+read_ready = False
 # When user joins, send neccessary data with it, i.e username
 # Possible requests lobby phase:
 #  - Retrieve player list
 #  - Send message
+#  - Start game
+
+
+def listening_thread():
+    global read_ready
+    while True:
+        read, _, _ = select.select([lsock], [], [], 0)
+        if read:
+            read_ready = True
+        else:
+            read_ready = False
 
 
 def join(stdscr):
@@ -64,6 +76,7 @@ def join(stdscr):
 
 
 def multiplayer_menu(stdscr):
+
     utils.clear(stdscr)
     host_text = "host"
     join_text = "join"
@@ -96,7 +109,7 @@ def multiplayer_menu(stdscr):
 
 
 def lobby(stdscr):
-
+    threading.Thread(target=listening_thread).start()
     lsock.setblocking(False)
 
     utils.clear(stdscr)
@@ -112,35 +125,57 @@ def lobby(stdscr):
 
     chat_win = curses.newwin(
         config.CHAT_WIN_HEIGHT, config.CHAT_WIN_WIDTH,
-        config.BORDER, config.PLAYER_WIN_WIDTH + 1)
+        config.BORDER, config.PLAYER_WIN_WIDTH + 2)
 
     msg_box_length = config.CHAT_WIN_WIDTH - 4
     msg = ""
     rectangle(chat_win, config.CHAT_WIN_HEIGHT - 4,
               1, config.CHAT_WIN_HEIGHT - 2, msg_box_length + 2)
 
-    chat_win.keypad(True)
-    chat_win.nodelay(True)
     chat_win.box()
     chat_win.refresh()
 
+    settings_win = curses.newwin(
+        config.SCREEN_HEIGHT,
+        config.SCREEN_WIDTH - config.CHAT_WIN_WIDTH - config.PLAYER_WIN_WIDTH,
+        config.BORDER, config.PLAYER_WIN_WIDTH + config.CHAT_WIN_WIDTH + 2)
+
+    settings_win.box()
+    settings_win.addstr(1, 1, "start")
+    settings_win.refresh()
     utils.send_message(lsock, "p", encode=True)
 
-    while True:
-        key = chat_win.getch()
-        if key != -1:
-            if key == curses.KEY_BACKSPACE:
-                msg = msg[:-1]
-            elif key == 10:
-                utils.send_message(lsock, "m" + msg, encode=True)
-                msg = ""
-            elif len(msg) < msg_box_length:
-                msg += chr(key)
-            chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2,
-                            " " * msg_box_length)
-            chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2, msg)
+    active_win = chat_win
 
-        read_ready, _, _ = select.select([lsock], [], [], 0)
+    # its messy, but it works
+    while True:
+        key = stdscr.getch()
+        if key != -1:
+            if key == curses.KEY_RIGHT:
+                active_win = settings_win
+                settings_win.addstr(1, 1, "start", curses.A_STANDOUT)
+                settings_win.refresh()
+            elif key == curses.KEY_LEFT:
+                active_win = chat_win
+                settings_win.addstr(1, 1, "start", curses.A_NORMAL)
+                settings_win.refresh()
+
+            elif active_win == chat_win:
+                if key == curses.KEY_BACKSPACE:
+                    msg = msg[:-1]
+                elif key == 10:
+                    utils.send_message(lsock, "m" + msg, encode=True)
+                    msg = ""
+                elif len(msg) < msg_box_length:
+                    msg += chr(key)
+                chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2,
+                                " " * msg_box_length)
+                chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2, msg)
+                chat_win.refresh()
+            elif active_win == settings_win:
+                if key == 10:
+                    utils.send_message(lsock, "s", encode=True)
+                    return utils.GameState.PLAY
 
         if read_ready:
             try:

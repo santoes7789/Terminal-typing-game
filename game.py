@@ -3,6 +3,7 @@ import config
 import time
 import curses
 import random
+import multiplayer
 from curses.textpad import rectangle
 
 
@@ -33,7 +34,6 @@ class PhraseObject:
         stdscr.refresh()
 
     def undraw(self, stdscr):
-
         for i in range(4):
             stdscr.addstr(self.y + i, self.x, " " * (len(self.phrase) + 2))
         stdscr.refresh()
@@ -117,7 +117,7 @@ def play(stdscr):
     for i in range(len(sections)):
         lines.append(sections[i].split("\n"))
 
-    difficulty = 3
+    difficulty = 1
     count = 0
 
     phrase = random.choice(lines[difficulty]).strip()
@@ -126,11 +126,24 @@ def play(stdscr):
 
     while True:
         if current_phrase.update(stdscr):
+            if multiplayer.lsock:
+                utils.send_message(multiplayer.lsock, "g", encode=True)
             count += 1
-            if count > 2:
+            difficulty = time_trials(count)
+            if difficulty == -1:
                 break
             phrase = random.choice(lines[difficulty]).strip()
             current_phrase = PhraseObject(phrase, 3, 3)
             current_phrase.draw(stdscr)
 
     return score_screen(stdscr)
+
+
+def time_trials(count):
+    if count < 3:
+        return 0
+    if count < 10:
+        return 1
+    elif count < 20:
+        return 3
+    return -1
