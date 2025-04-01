@@ -4,25 +4,15 @@ from curses.textpad import rectangle
 import config
 import socket
 import select
-import threading
+import game
+import time
 
 lsock = None
-read_ready = False
 # When user joins, send neccessary data with it, i.e username
 # Possible requests lobby phase:
 #  - Retrieve player list
 #  - Send message
 #  - Start game
-
-
-def listening_thread():
-    global read_ready
-    while True:
-        read, _, _ = select.select([lsock], [], [], 0)
-        if read:
-            read_ready = True
-        else:
-            read_ready = False
 
 
 def join(stdscr):
@@ -64,10 +54,7 @@ def join(stdscr):
 
     # this is still broken
     if selected:
-        try:
-            lsock.connect((ip, config.PORT))
-        except Exception:
-            return utils.GameState.MAIN_MENU
+        lsock.connect((ip, config.PORT))
 
         utils.send_message(lsock, "n" + config.USERNAME, encode=True)
         return utils.GameState.LOBBY
@@ -109,7 +96,6 @@ def multiplayer_menu(stdscr):
 
 
 def lobby(stdscr):
-    threading.Thread(target=listening_thread).start()
     lsock.setblocking(False)
 
     utils.clear(stdscr)
@@ -175,12 +161,10 @@ def lobby(stdscr):
                 if key == 10:
                     utils.send_message(lsock, "s", encode=True)
 
-        if read_ready:
-            try:
-                prefix, recv = utils.parse_message(lsock)
-            except Exception:
-                return utils.GameState.MAIN_MENU
+        read_ready, _, _ = select.select([lsock], [], [], 0)
 
+        if read_ready:
+            prefix, recv = utils.parse_message(lsock)
             if prefix == "m":
                 messages.append(recv)
                 if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:

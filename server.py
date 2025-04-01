@@ -3,12 +3,14 @@ import selectors
 import struct
 import config
 import utils
+import time
 
 HOST = ""
 PORT = config.PORT
 
 
 connections = []
+current_phrase = ""
 
 
 class Connection:
@@ -92,32 +94,44 @@ def format_conns_list():
 
 
 def on_receive_message(sender, prefix, recv):
+
+    def send_new_word():
+        global current_phrase
+        current_phrase = utils.generate_rand_word(3)
+        message = ("w" + current_phrase).encode("utf-8")
+        for conn in connections:
+            conn.write_buffer += message
+            conn.write()
+
     if prefix == "p":
         # consider using json dump? maybe not i dont know
         sender.write_buffer += format_conns_list()
+
     elif prefix == "m":
         message = ("m" + recv).encode("utf-8")
         for conn in connections:
             conn.write_buffer += message
+
     elif prefix == "n":
         sender.name = recv
         for conn in connections:
             conn.write_buffer += format_conns_list()
+
     elif prefix == "s":
         message = "s".encode("utf-8")
         for conn in connections:
             conn.write_buffer += message
             conn.write()
 
-        message = ("w" + utils.generate_rand_word(3)).encode("utf-8")
-        for conn in connections:
-            conn.write_buffer += message
-            conn.write()
-    elif prefix == "w":
-        message = ("w" + utils.generate_rand_word(3)).encode("utf-8")
-        for conn in connections:
-            conn.write_buffer += message
-            conn.write()
+        time.sleep(5)
+        send_new_word()
+
+    elif prefix == "i":
+        if (int(recv) == len(current_phrase)):
+            for conn in connections:
+                conn.write_buffer += "f".encode("utf-8")
+                conn.write()
+            send_new_word()
 
 
 def accept_new_connection(sock):
