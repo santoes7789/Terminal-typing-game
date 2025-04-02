@@ -1,6 +1,6 @@
 import socket
 import selectors
-import struct
+import json
 import config
 import utils
 import time
@@ -10,17 +10,19 @@ PORT = config.PORT
 
 
 connections = []
+next_id = 1
 current_phrase = ""
 
 
 class Connection:
-    def __init__(self, selector, sock, addr, onrecv):
+    def __init__(self, selector, sock, addr, onrecv, id):
         self.selector = selector
         self.sock = sock
         self.addr = addr
         self.onrecv = onrecv
         self.write_buffer = b""
         self.name = ""
+        self.id = id
 
     def close(self):
         print("Disconnected ", self.addr)
@@ -75,11 +77,11 @@ sel.register(lsock, selectors.EVENT_READ)
 
 
 def format_conns_list():
-    player_list = "p"
+    player_list = []
     for conn in connections:
-        player_list += conn.name + "\n"
-    player_list = player_list[:-1]
-    return player_list.encode("utf-8")
+        player_list.append({"id": conn.id, "name": conn.name})
+    message = "p" + json.dumps(player_list)
+    return message.encode("utf-8")
 
 
 # message prefixes:
@@ -95,50 +97,52 @@ def format_conns_list():
 
 def on_receive_message(sender, prefix, recv):
 
+    def broadcast(message):
+        for conn in connections:
+            conn.write_buffer += message
+            conn.write()
+
     def send_new_word():
         global current_phrase
         current_phrase = utils.generate_rand_word(3)
-        message = ("w" + current_phrase).encode("utf-8")
-        for conn in connections:
-            conn.write_buffer += message
-            conn.write()
+        send = ("w" + current_phrase).encode("utf-8")
+        broadcast(send)
 
     if prefix == "p":
-        # consider using json dump? maybe not i dont know
-        sender.write_buffer += format_conns_list()
+        broadcast(format_conns_list())
 
     elif prefix == "m":
-        message = ("m" + recv).encode("utf-8")
-        for conn in connections:
-            conn.write_buffer += message
+        message = {"id": sender.id, "message": recv}
+        send = ("m" + json.dumps(message)).encode("utf-8")
+        broadcast(send)
 
     elif prefix == "n":
         sender.name = recv
-        for conn in connections:
-            conn.write_buffer += format_conns_list()
+        broadcast(format_conns_list())
 
     elif prefix == "s":
-        message = "s".encode("utf-8")
-        for conn in connections:
-            conn.write_buffer += message
-            conn.write()
+        send = "s".encode("utf-8")
+        broadcast(send)
 
-        time.sleep(5)
+        time.sleep(2)
         send_new_word()
 
     elif prefix == "i":
+        message = {"id": sender.id, "index": recv}
+        send = ("i" + json.dumps(message)).encode("utf-8")
+        broadcast(send)
         if (int(recv) == len(current_phrase)):
-            for conn in connections:
-                conn.write_buffer += "f".encode("utf-8")
-                conn.write()
+            broadcast("f".encode("utf-8"))
             send_new_word()
 
 
 def accept_new_connection(sock):
+    global next_id
     conn, addr = sock.accept()
     conn.setblocking(False)
     print("Accepted connection from ", addr)
-    obj = Connection(sel, conn, addr, on_receive_message)
+    obj = Connection(sel, conn, addr, on_receive_message, next_id)
+    next_id += 1
     connections.append(obj)
     sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, data=obj)
 

@@ -4,10 +4,10 @@ from curses.textpad import rectangle
 import config
 import socket
 import select
-import game
-import time
+import json
 
 lsock = None
+players = []
 # When user joins, send neccessary data with it, i.e username
 # Possible requests lobby phase:
 #  - Retrieve player list
@@ -96,11 +96,11 @@ def multiplayer_menu(stdscr):
 
 
 def lobby(stdscr):
+    global players
     lsock.setblocking(False)
 
     utils.clear(stdscr)
 
-    players = []
     messages = []
 
     players_win = curses.newwin(
@@ -166,16 +166,19 @@ def lobby(stdscr):
         if read_ready:
             prefix, recv = utils.parse_message(lsock)
             if prefix == "m":
-                messages.append(recv)
+                message = json.loads(recv)
+                sender = str(message["id"])
+                messages.append(sender + ": " + message["message"])
                 if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
                     messages.pop(0)
                 for i, message in enumerate(messages):
                     chat_win.addstr(i + 1, 1, message)
                     chat_win.refresh()
             elif prefix == "p":
-                players = recv.split("\n")
+                players = json.loads(recv)
                 for i, name in enumerate(players):
-                    players_win.addstr(i + 1, 1, name)
+                    players_win.addstr(
+                        i + 1, 1, name["name"] + "\t" + str(name["id"]))
                     players_win.refresh()
             elif prefix == "s":
                 return utils.GameState.PLAY
