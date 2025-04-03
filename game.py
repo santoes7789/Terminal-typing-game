@@ -110,7 +110,6 @@ def multiplayer_handler(stdscr, phrase):
 
 def play(stdscr):
     global time_taken, index
-    utils.clear(stdscr)
 
     count = 0
     time_taken = 0
@@ -135,6 +134,7 @@ def play(stdscr):
                 break
             current_phrase = get_phrase(difficulty)
 
+        utils.clear(stdscr)
         # Draw phrase
         # rectangle(stdscr, y, x, y + 3, x + len(current_phrase) + 1)
         stdscr.addstr(y + 1, x + 1, current_phrase, curses.A_BOLD)
