@@ -8,6 +8,7 @@ import json
 
 lsock = None
 players = []
+my_id = None
 # When user joins, send neccessary data with it, i.e username
 # Possible requests lobby phase:
 #  - Retrieve player list
@@ -96,7 +97,7 @@ def multiplayer_menu(stdscr):
 
 
 def lobby(stdscr):
-    global players
+    global players, my_id
     lsock.setblocking(False)
 
     utils.clear(stdscr)
@@ -182,3 +183,6 @@ def lobby(stdscr):
                     players_win.refresh()
             elif prefix == "s":
                 return utils.GameState.PLAY
+            elif prefix == "o":
+                my_id = int(recv)
+                stdscr.addstr(0, 0, str(my_id))

@@ -85,6 +85,7 @@ def format_conns_list():
 
 
 # message prefixes:
+# client request
 # lobby:
 # p -> client requests for full player list
 # m -> client sends message
@@ -94,6 +95,13 @@ def format_conns_list():
 # game:
 # i -> client to tell what index of word they are on
 
+
+# server request
+# o -> give client id
+# w -> give client word
+# f -> notify word has finished
+# s -> tell client to start game
+# i -> broadcast for index of work
 
 def on_receive_message(sender, prefix, recv):
 
@@ -128,7 +136,7 @@ def on_receive_message(sender, prefix, recv):
         send_new_word()
 
     elif prefix == "i":
-        message = {"id": sender.id, "index": recv}
+        message = {"id": sender.id, "index": int(recv)}
         send = ("i" + json.dumps(message)).encode("utf-8")
         broadcast(send)
         if (int(recv) == len(current_phrase)):
@@ -142,9 +150,11 @@ def accept_new_connection(sock):
     conn.setblocking(False)
     print("Accepted connection from ", addr)
     obj = Connection(sel, conn, addr, on_receive_message, next_id)
-    next_id += 1
     connections.append(obj)
     sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, data=obj)
+    obj.write_buffer += ("o" + str(next_id)).encode("utf-8")
+    obj.write()
+    next_id += 1
 
 
 try:
