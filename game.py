@@ -137,6 +137,7 @@ def play(stdscr):
         utils.clear(stdscr)
         # Draw phrase
         # rectangle(stdscr, y, x, y + 3, x + len(current_phrase) + 1)
+        stdscr.addstr(y + 10, x + 1, "SCORE: " + str(count))
         stdscr.addstr(y + 1, x + 1, current_phrase, curses.A_BOLD)
         stdscr.addstr(y + 2, x + 1, current_phrase)
         for conn in multiplayer.players:
@@ -149,6 +150,7 @@ def play(stdscr):
 
         while True:
             if input_handler(stdscr, current_phrase):
+                count += 1
                 break
 
             if multiplayer.lsock:
