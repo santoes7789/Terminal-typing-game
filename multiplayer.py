@@ -15,6 +15,9 @@ my_id = None
 #  - Send message
 #  - Start game
 
+# Perhaps make Option have highlight function or something
+# Perhaps make a class or fucnion for gather user input, such as ip or name
+
 
 def join(stdscr):
 
@@ -63,9 +66,51 @@ def join(stdscr):
         return utils.GameState.MAIN_MENU
 
 
+# I know this is the exact same as the function above but honestly i dont care
+def get_username(stdscr):
+    start_x = config.SCREEN_WIDTH//2 - 15
+    stdscr.addstr(11, start_x, "Enter name:")
+    rectangle(stdscr, 12, start_x, 14, start_x + 30)
+    stdscr.refresh()
+
+    name = ""
+
+    selected = 1
+
+    cancel_btn = utils.Option(start_x, 15, "go back")
+    confirm_btn = utils.Option(start_x + 15, 15, "yep i like that name")
+    option_select = utils.OptionSelect(
+        stdscr, [cancel_btn, confirm_btn], selected=1)
+
+    while True:
+        key = stdscr.getch()
+        selected = option_select.update_loop(stdscr, _key=key)
+        if selected != -1:
+            break
+        if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
+            if key == curses.KEY_BACKSPACE:
+                stdscr.addstr(13, start_x + 1, " " * 30)
+                name = name[:-1]
+            else:
+                name += chr(key)
+            stdscr.addstr(13, start_x + 1, name)
+            stdscr.refresh()
+
+    if selected:
+        config.USERNAME = name
+        return 1
+    else:
+        return 0
+
+
 def multiplayer_menu(stdscr):
 
     utils.clear(stdscr)
+    if not config.USERNAME:
+        if not get_username(stdscr):
+            return utils.GameState.MAIN_MENU
+    utils.clear(stdscr)
+
     host_text = "host"
     join_text = "join"
     selected = 1

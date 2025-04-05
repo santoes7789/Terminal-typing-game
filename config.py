@@ -13,4 +13,4 @@ CHAT_WIN_HEIGHT = 20
 PORT = 5000
 
 # User
-USERNAME = "Santoso"
+USERNAME = None
