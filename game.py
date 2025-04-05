@@ -61,6 +61,20 @@ def check_input(stdscr, phrase, i):
     return 0
 
 
+def word_finish(stdscr, phrase):
+    stdscr.addstr(y + 1, x + 1, phrase, curses.A_NORMAL)
+    stdscr.refresh()
+    time.sleep(0.1)
+
+    stdscr.addstr(y + 1, x + 1, phrase, curses.A_STANDOUT)
+    stdscr.refresh()
+    time.sleep(0.1)
+
+    stdscr.addstr(y + 1, x + 1, phrase, curses.A_BOLD)
+    stdscr.refresh()
+    time.sleep(0.1)
+
+
 def input_handler(stdscr, phrase):
     global total_characters_typed, correct_characters_typed, index
 
@@ -118,6 +132,8 @@ def play(stdscr):
     current_phrase = ""
     while True:
 
+        stdscr.addstr(0, 0, "waiting for word from server... ")
+        stdscr.refresh()
         # Get new word
         if multiplayer.lsock:
             # block until recieve new word
@@ -164,6 +180,7 @@ def play(stdscr):
         if multiplayer.lsock:
             utils.send_message(multiplayer.lsock, "f" +
                                str(time_taken), encode=True)
+        word_finish(stdscr, current_phrase)
 
     return score_screen(stdscr)
 
