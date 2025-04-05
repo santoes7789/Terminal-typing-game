@@ -42,11 +42,11 @@ class OptionSelect():
             key = stdscr.getch()
 
         if key != -1:
-            if key == curses.KEY_RIGHT or key == curses.KEY_DOWN:
+            if key in (curses.KEY_RIGHT, curses.KEY_DOWN):
                 self.selected = min(len(self.options) - 1, self.selected + 1)
-            elif key == curses.KEY_LEFT or key == curses.KEY_UP:
+            elif key in (curses.KEY_LEFT, curses.KEY_UP):
                 self.selected = max(0, self.selected - 1)
-            elif key == 10 or key == 32:
+            elif key == 10:
                 return self.selected
             self.draw(stdscr)
 
