@@ -91,7 +91,6 @@ def input_handler(stdscr, phrase):
     correct_characters_typed += 1
 
     stdscr.addstr(y + 2, x + 1, " " * index + phrase[index:])
-    stdscr.refresh()
 
     if multiplayer.lsock:
         utils.send_message(
@@ -99,6 +98,9 @@ def input_handler(stdscr, phrase):
 
     if index >= len(phrase):
         return 1
+
+    stdscr.addstr(y + 2, x + 1 + index, phrase[index], curses.A_UNDERLINE)
+    stdscr.refresh()
 
     return 0
 
