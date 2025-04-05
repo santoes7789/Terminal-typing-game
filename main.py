@@ -49,4 +49,7 @@ def main(stdscr):
             state = multiplayer.lobby(stdscr)
 
 
-curses.wrapper(main)
+try:
+    curses.wrapper(main)
+except KeyboardInterrupt:
+    print("keyboard interrupt detected, program exited")
