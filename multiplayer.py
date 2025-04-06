@@ -213,7 +213,13 @@ def lobby(stdscr):
             prefix, recv = utils.parse_message(lsock)
             if prefix == "m":
                 message = json.loads(recv)
-                sender = str(message["id"])
+
+                # find name
+                for conn in players:
+                    if conn["id"] == message["id"]:
+                        sender = conn["name"]
+                        break
+
                 messages.append(sender + ": " + message["message"])
                 if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
                     messages.pop(0)
