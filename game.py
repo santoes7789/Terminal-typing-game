@@ -9,21 +9,30 @@ import multiplayer
 from curses.textpad import rectangle
 
 
-typing_speed = 0
 index = 0
+
+
+start_time = 0
+end_time = 0
+total_time = 0
+
 total_characters_typed = 0
 correct_characters_typed = 0
-accuracy = 0
+
+count = 0
 
 y = 3
 x = 3
 
 
 def score_screen(stdscr):
+    accuracy = correct_characters_typed * 100/total_characters_typed
+    typing_speed = (correct_characters_typed/5)/(total_time/60)
     utils.clear(stdscr)
+    stdscr.addstr(4, 4, "Haha you lost. Your score was: {}".format(count))
     stdscr.addstr(
-        4, 4, "Your typing speed was: {:.0f} WPM".format(typing_speed))
-    stdscr.addstr(5, 4, "Your accuracy was: {:.2f}%".format(accuracy))
+        6, 4, "Your typing speed was: {:.0f} WPM".format(typing_speed))
+    stdscr.addstr(7, 4, "Your accuracy was: {:.2f}%".format(accuracy))
 
     start_btn = utils.Option(30, config.SCREEN_HEIGHT//2, "play again")
     exit_btn = utils.Option(5, config.SCREEN_HEIGHT//2, "main menu")
@@ -42,25 +51,6 @@ def score_screen(stdscr):
         return utils.GameState.MAIN_MENU
 
 
-def get_phrase(difficulty):
-    if multiplayer.lsock:
-        pass
-    else:
-        return utils.generate_rand_word(difficulty)
-
-
-def check_input(stdscr, phrase, i):
-    global total_characters_typed, correct_characters_typed
-    key = stdscr.getch()
-    if key != -1:
-        total_characters_typed += 1
-
-    if key == ord(phrase[i]):
-        correct_characters_typed += 1
-        return 1
-    return 0
-
-
 def word_finish(stdscr, phrase):
     stdscr.addstr(y + 1, x + 1, phrase, curses.A_NORMAL)
     stdscr.refresh()
@@ -76,7 +66,7 @@ def word_finish(stdscr, phrase):
 
 
 def input_handler(stdscr, phrase):
-    global total_characters_typed, correct_characters_typed, index
+    global total_characters_typed, correct_characters_typed, start_time, index
 
     key = stdscr.getch()
     if key == -1:
@@ -87,6 +77,8 @@ def input_handler(stdscr, phrase):
     if key != ord(phrase[index]):
         return 0
 
+    if index == 0:
+        start_time = time.time()
     index += 1
     correct_characters_typed += 1
 
@@ -124,74 +116,93 @@ def multiplayer_handler(stdscr, phrase):
             stdscr.refresh()
 
 
-def play(stdscr):
-    global time_taken, index
+def get_word(stdscr):
+    if multiplayer.lsock:
+        # block until recieve new word
+        while True:
+            select.select([multiplayer.lsock], [], [])
+            prefix, message = utils.parse_message(multiplayer.lsock)
+            if prefix == "w":
+                current_phrase = message
+                break
+    else:
+        difficulty = 3
+        current_phrase = utils.generate_rand_word(difficulty)
 
-    count = 0
-    time_taken = 0
+    stdscr.addstr(y + 1, x + 1, current_phrase, curses.A_BOLD)
+    stdscr.addstr(y + 2, x + 1, current_phrase)
+
+    for conn in multiplayer.players:
+        if conn["id"] != multiplayer.my_id:
+            stdscr.addstr(y + 3 + conn["id"], x + 1, current_phrase)
+
+    stdscr.refresh()
+    return current_phrase
+
+
+def play(stdscr):
+    global index, total_time, total_characters_typed, correct_characters_typed
+
+    utils.clear(stdscr)
+
+    total_time = 0
+    total_characters_typed = 0
+    correct_characters_typed = 0
 
     # current_phrase = PhraseObject(utils.generate_rand_word(difficulty), 3, 3)
-    current_phrase = ""
-    while True:
-
-        stdscr.addstr(0, 0, "waiting for word from server... ")
-        stdscr.refresh()
-        # Get new word
-        if multiplayer.lsock:
-            # block until recieve new word
-            while True:
-                select.select([multiplayer.lsock], [], [])
-                prefix, message = utils.parse_message(multiplayer.lsock)
-                if prefix == "w":
-                    current_phrase = message
-                    break
-        else:
-
-            difficulty = time_trials(count)
-            if difficulty == -1:
-                break
-            current_phrase = get_phrase(difficulty)
-
-        utils.clear(stdscr)
-        # Draw phrase
-        # rectangle(stdscr, y, x, y + 3, x + len(current_phrase) + 1)
-        stdscr.addstr(y + 10, x + 1, "SCORE: " + str(count))
-        stdscr.addstr(y + 1, x + 1, current_phrase, curses.A_BOLD)
-        stdscr.addstr(y + 2, x + 1, current_phrase)
-        for conn in multiplayer.players:
-            if conn["id"] != multiplayer.my_id:
-                stdscr.addstr(y + 3 + conn["id"], x + 1, current_phrase)
-
-        stdscr.refresh()
-
-        start_time = time.time()
-
-        while True:
-            if input_handler(stdscr, current_phrase):
-                count += 1
-                break
-
-            if multiplayer.lsock:
-                if multiplayer_handler(stdscr, current_phrase):
-                    break
-
-        index = 0
-        end_time = time.time()
-        time_taken = end_time - start_time
-
-        if multiplayer.lsock:
-            utils.send_message(multiplayer.lsock, "f" +
-                               str(time_taken), encode=True)
-        word_finish(stdscr, current_phrase)
+    survival(stdscr)
 
     return score_screen(stdscr)
 
 
-def time_trials(count):
-    if count < 3:
-        return 0
-    if count < 10:
-        return 1
-    elif count < 20:
-        return 3
-    return -1
+def survival(stdscr):
+
+    global index, count, total_time
+
+    # settings
+    max_time = 20
+    bar_width = 50
+    finish_bonus = 3
+
+    time_left = max_time
+    time_stamp = time.time()
+
+    count = 0
+    time_taken = 0
+
+    # Keep going until time is left
+    while time_left > 0:
+        utils.clear(stdscr)
+        current_phrase = get_word(stdscr)
+        index = 0
+
+        while True:
+            time_left -= time.time() - time_stamp
+            if time_left <= 0:
+                break
+            time_stamp = time.time()
+            # current_phrase = get_word(stdscr)
+            progress = int(time_left/max_time * bar_width)
+            # stdscr.addstr(1, 0, str(time_left))
+            stdscr.addstr(0, 0, " " * bar_width)
+            stdscr.addstr(0, 0, "\u2588" * progress +
+                          "\u2591" * (bar_width - progress))
+            stdscr.refresh()
+
+            if input_handler(stdscr, current_phrase):
+                time_left = min(max_time, time_left + finish_bonus)
+                count += 1
+                time_taken = time.time() - start_time
+                if multiplayer.lsock:
+                    utils.send_message(multiplayer.lsock, "f" +
+                                       str(time_taken), encode=True)
+                word_finish(stdscr, current_phrase)
+                break
+
+            if multiplayer.lsock:
+                if multiplayer_handler(stdscr, current_phrase):
+                    time_taken = time.time() - start_time
+                    break
+
+        index = 0
+        total_time += time_taken
