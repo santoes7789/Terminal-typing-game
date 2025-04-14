@@ -65,20 +65,14 @@ def send_message(lsock, message, encode=False):
 
 
 def parse_message(lsock):
-    try:
-        msg_length = lsock.recv(4)
-    except Exception as e:
-        raise e
+    msg_length = lsock.recv(4)
 
     if not msg_length:
         raise ConnectionResetError
 
     bytes_to_read = struct.unpack("!I", msg_length)[0]
 
-    try:
-        recv_data = lsock.recv(bytes_to_read)
-    except Exception as e:
-        raise e
+    recv_data = lsock.recv(bytes_to_read)
 
     if not recv_data:
         raise ConnectionResetError
