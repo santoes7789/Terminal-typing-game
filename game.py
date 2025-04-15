@@ -97,14 +97,14 @@ def input_handler(stdscr, phrase):
     return 0
 
 
-def multiplayer_handler(stdscr, phrase):
+def multiplayer_handler(stdscr, phrase, word_index):
 
     read_ready, _, _ = select.select([multiplayer.lsock], [], [], 0)
 
     if read_ready:
         prefix, message = utils.parse_message(multiplayer.lsock)
 
-        if prefix == "f":
+        if prefix == "f" and message == str(word_index):
             return 1
 
         elif prefix == "i":
@@ -149,7 +149,6 @@ def play(stdscr):
     total_characters_typed = 0
     correct_characters_typed = 0
 
-    # current_phrase = PhraseObject(utils.generate_rand_word(difficulty), 3, 3)
     survival(stdscr)
 
     return score_screen(stdscr)
@@ -166,6 +165,8 @@ def survival(stdscr):
 
     time_left = max_time
     time_stamp = time.time()
+
+    word_index = 1
 
     count = 0
     time_taken = 0
@@ -196,13 +197,13 @@ def survival(stdscr):
                 if multiplayer.lsock:
                     utils.send_message(multiplayer.lsock, "f" +
                                        str(time_taken), encode=True)
-                word_finish(stdscr, current_phrase)
                 break
 
             if multiplayer.lsock:
-                if multiplayer_handler(stdscr, current_phrase):
+                if multiplayer_handler(stdscr, current_phrase, word_index):
                     time_taken = time.time() - start_time
                     break
 
-        index = 0
+        word_index += 1
         total_time += time_taken
+        word_finish(stdscr, current_phrase)

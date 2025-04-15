@@ -11,6 +11,7 @@ PORT = config.PORT
 
 connections = []
 next_id = 1
+word_index = 0
 current_phrase = ""
 
 
@@ -104,6 +105,7 @@ def format_conns_list():
 # i -> broadcast for index of work
 
 def on_receive_message(sender, prefix, recv):
+    global word_index
 
     def broadcast(message):
         for conn in connections:
@@ -111,8 +113,9 @@ def on_receive_message(sender, prefix, recv):
             conn.write()
 
     def send_new_word():
-        global current_phrase
+        global current_phrase, word_index
         current_phrase = utils.generate_rand_word(3)
+        word_index += 1
         send = ("w" + current_phrase).encode("utf-8")
         broadcast(send)
 
@@ -129,9 +132,9 @@ def on_receive_message(sender, prefix, recv):
         broadcast(format_conns_list())
 
     elif prefix == "s":
+        word_index = 0
         send = "s".encode("utf-8")
         broadcast(send)
-
         time.sleep(2)
         send_new_word()
 
@@ -140,7 +143,8 @@ def on_receive_message(sender, prefix, recv):
         send = ("i" + json.dumps(message)).encode("utf-8")
         broadcast(send)
         if (int(recv) == len(current_phrase)):
-            broadcast("f".encode("utf-8"))
+            send = ("f" + str(word_index)).encode("utf-8")
+            broadcast(send)
             send_new_word()
 
 
