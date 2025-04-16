@@ -84,15 +84,22 @@ def parse_message(lsock):
 
 
 lines = []
+index = 0
+line_difficulties = 8
 with open("word_bank", "r") as file:
     content = file.read()
 sections = content.split("\n\n")
 for i in range(len(sections)):
-    lines.append(sections[i].split("\n"))
+    sec = sections[i].split("\n")
+    random.shuffle(sec)
+    lines.append(sec)
 
 
 def generate_rand_word(difficulty):
-    return random.choice(lines[difficulty]).strip()
+    global index
+    word = (lines[difficulty])[index].strip()
+    index += 1
+    return word
 
 
 def clear(stdscr):
@@ -102,3 +109,31 @@ def clear(stdscr):
               config.SCREEN_HEIGHT - 1 + config.BORDER,
               config.SCREEN_WIDTH - 1 + config.BORDER)
     stdscr.refresh()
+
+
+def sort_word_bank():
+    # 1 - 3, 3 - 5, 5- 10, 10+
+    word_list = [[], [], [], [], [], [], [], []]
+    for line in content.split("\n"):
+        word = line.strip()
+        if len(word) in range(1, 3):
+            word_list[0].append(word)
+        elif len(word) in range(3, 6):
+            word_list[1].append(word)
+        elif len(word) in range(6, 10):
+            word_list[2].append(word)
+        elif len(word) in range(10, 15):
+            word_list[3].append(word)
+        elif len(word) in range(15, 20):
+            word_list[4].append(word)
+        elif len(word) in range(20, 25):
+            word_list[5].append(word)
+        elif len(word) in range(25, 30):
+            word_list[6].append(word)
+        elif len(word) >= 30:
+            word_list[7].append(word)
+    with open("word_bank", "w") as file:
+        for sub in word_list:
+            for word in sub:
+                file.write(f"{word}\n")
+            file.write("\n")
