@@ -45,7 +45,7 @@ def join(stdscr, context):
             break
         if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
             if key == curses.KEY_BACKSPACE:
-                stdscr.addstr(13, start_x + 1, " " * 30)
+                stdscr.addstr(13, start_x + 1, " " * 29)
                 ip = ip[:-1]
             elif chr(key).isnumeric() or chr(key) == ".":
                 ip += chr(key)
@@ -86,7 +86,7 @@ def get_username(stdscr, context):
             break
         if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
             if key == curses.KEY_BACKSPACE:
-                stdscr.addstr(13, start_x + 1, " " * 30)
+                stdscr.addstr(13, start_x + 1, " " * 29)
                 name = name[:-1]
             else:
                 name += chr(key)
