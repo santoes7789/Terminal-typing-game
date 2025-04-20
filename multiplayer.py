@@ -183,8 +183,10 @@ def lobby(stdscr, context):
                 if key == curses.KEY_BACKSPACE:
                     msg = msg[:-1]
                 elif key == 10:
-                    utils.send_message(context.lsock, "m" + msg, encode=True)
-                    msg = ""
+                    if msg:
+                        utils.send_message(
+                            context.lsock, "m" + msg, encode=True)
+                        msg = ""
                 elif len(msg) < msg_box_length:
                     msg += chr(key)
                 chat_win.addstr(config.CHAT_WIN_HEIGHT - 3, 2,
