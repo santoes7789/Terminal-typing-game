@@ -6,9 +6,6 @@ import socket
 import select
 import json
 
-lsock = None
-players = []
-my_id = None
 # When user joins, send neccessary data with it, i.e username
 # Possible requests lobby phase:
 #  - Retrieve player list
@@ -19,10 +16,9 @@ my_id = None
 # Perhaps make a class or fucnion for gather user input, such as ip or name
 
 
-def join(stdscr):
+def join(stdscr, context):
 
-    global lsock
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    context.lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     utils.clear(stdscr)
 
@@ -58,16 +54,17 @@ def join(stdscr):
 
     # this is still broken
     if selected:
-        lsock.connect((ip, config.PORT))
-
-        utils.send_message(lsock, "n" + config.USERNAME, encode=True)
+        context.lsock.connect((ip, config.PORT))
+        utils.send_message(context.lsock, "n" +
+                           context.player_name, encode=True)
         return utils.GameState.LOBBY
     else:
+        context.lsock = None
         return utils.GameState.MAIN_MENU
 
 
 # I know this is the exact same as the function above but honestly i dont care
-def get_username(stdscr):
+def get_username(stdscr, context):
     start_x = config.SCREEN_WIDTH//2 - 15
     stdscr.addstr(11, start_x, "Enter name:")
     rectangle(stdscr, 12, start_x, 14, start_x + 30)
@@ -97,53 +94,44 @@ def get_username(stdscr):
             stdscr.refresh()
 
     if selected:
-        config.USERNAME = name
+        context.player_name = name
         return 1
     else:
         return 0
 
 
-def multiplayer_menu(stdscr):
+def multiplayer_menu(stdscr, context):
 
     utils.clear(stdscr)
-    if not config.USERNAME:
-        if not get_username(stdscr):
+
+    if not context.player_name:
+        if not get_username(stdscr, context):
             return utils.GameState.MAIN_MENU
+
     utils.clear(stdscr)
 
-    host_text = "host"
-    join_text = "join"
+    host_btn = utils.Option(config.SCREEN_WIDTH//2 - 5, 11, "host")
+    join_btn = utils.Option(config.SCREEN_WIDTH//2 + 5, 11, "join")
+    option_select = utils.OptionSelect(stdscr, [host_btn, join_btn])
     selected = 1
 
     while True:
-        stdscr.addstr(11, (config.SCREEN_WIDTH//2 - len(host_text) //
-                      2 - 4 + config.BORDER), host_text,
-                      curses.A_STANDOUT if selected == 0 else curses.A_NORMAL)
-        stdscr.addstr(11, (config.SCREEN_WIDTH//2 - len(join_text) //
-                      2 + 4 + config.BORDER), join_text,
-                      curses.A_STANDOUT if selected == 1 else curses.A_NORMAL)
+        selected = option_select.update_loop(stdscr)
 
-        key = stdscr.getch()
-
-        if key == curses.KEY_LEFT:
-            selected = 0
-        elif key == curses.KEY_RIGHT:
-            selected = 1
-        elif key == 10 or key == 32:  # enter or space
+        if selected != -1:
             break
 
     # join
     if selected == 1:
-        return join(stdscr)
+        return join(stdscr, context)
     elif selected == 0:
         # host
         pass
     return utils.GameState.EXIT
 
 
-def lobby(stdscr):
-    global players, my_id
-    lsock.setblocking(False)
+def lobby(stdscr, context):
+    context.lsock.setblocking(False)
 
     utils.clear(stdscr)
 
@@ -195,7 +183,7 @@ def lobby(stdscr):
                 if key == curses.KEY_BACKSPACE:
                     msg = msg[:-1]
                 elif key == 10:
-                    utils.send_message(lsock, "m" + msg, encode=True)
+                    utils.send_message(context.lsock, "m" + msg, encode=True)
                     msg = ""
                 elif len(msg) < msg_box_length:
                     msg += chr(key)
@@ -205,17 +193,17 @@ def lobby(stdscr):
                 chat_win.refresh()
             elif active_win == settings_win:
                 if key == 10:
-                    utils.send_message(lsock, "s", encode=True)
+                    utils.send_message(context.lsock, "s", encode=True)
 
-        read_ready, _, _ = select.select([lsock], [], [], 0)
+        read_ready, _, _ = select.select([context.lsock], [], [], 0)
 
         if read_ready:
-            prefix, recv = utils.parse_message(lsock)
+            prefix, recv = utils.parse_message(context.lsock)
             if prefix == "m":
                 message = json.loads(recv)
 
                 # find name
-                for conn in players:
+                for conn in context.players:
                     if conn["id"] == message["id"]:
                         sender = conn["name"]
                         break
@@ -227,13 +215,12 @@ def lobby(stdscr):
                     chat_win.addstr(i + 1, 1, message)
                     chat_win.refresh()
             elif prefix == "p":
-                players = json.loads(recv)
-                for i, name in enumerate(players):
+                context.players = json.loads(recv)
+                for i, name in enumerate(context.players):
                     players_win.addstr(
                         i + 1, 1, name["name"] + "\t" + str(name["id"]))
                     players_win.refresh()
             elif prefix == "s":
                 return utils.GameState.PLAY
             elif prefix == "o":
-                my_id = int(recv)
-                stdscr.addstr(0, 0, str(my_id))
+                context.my_id = int(recv)

@@ -14,6 +14,17 @@ class GameState(Enum):
     MULTIPLAYER = 5
 
 
+class Context():
+    def __init__(self):
+        self.player_name = ""
+
+        self.game_mode = None
+
+        self.players = []
+        self.lsock = None
+        self.my_id = None
+
+
 class Option():
     def __init__(self, x, y, string):
         self.x = x
