@@ -11,9 +11,9 @@ x = 3
 
 
 class Game():
-    survival_time = 5
+    survival_time = 15
     bonus_time = 1
-    bar_width = 15
+    bar_width = 50
 
     def __init__(self, stdscr, context):
         self.context = context
@@ -50,9 +50,9 @@ class Game():
         else:
             difficulty = 3
             current_phrase = utils.generate_rand_word(difficulty)
-        for conn in self.context.players:
+        for i, conn in enumerate(self.context.other_players):
             if conn["id"] != self.context.my_id:
-                self.stdscr.addstr(y + 3 + conn["id"], x + 1, current_phrase)
+                self.stdscr.addstr(y + 3 + i, x + 1, current_phrase)
         self.phrase_count += 1
         return Phrase(current_phrase, x, y, self.stdscr)
 
@@ -82,6 +82,8 @@ class Game():
         return False
 
     def multiplayer_handler(self):
+        if not self.context.lsock:
+            return False
 
         read_ready, _, _ = select.select([self.context.lsock], [], [], 0)
 
@@ -89,16 +91,19 @@ class Game():
             prefix, message = utils.parse_message(self.context.lsock)
 
             if prefix == "f" and message == str(self.phrase_count):
-                return 1
+                return True
 
             elif prefix == "i":
                 player = json.loads(message)
-                player_index = player["index"]
-                if player["id"] != self.context.my_id:
-                    self.stdscr.addstr(y + 3 + player["id"],
-                                       x + 1,
-                                       " " * player_index +
-                                       self.curr_phrase.phrase[player_index:])
+                player_curr_index = player["index"]
+
+                # Search
+                for i, value in enumerate(self.context.other_players):
+                    if player["id"] == value["id"]:
+                        self.stdscr.addstr(y + 3 + i,
+                                           x + 1,
+                                           " " * player_curr_index +
+                                           self.curr_phrase.phrase[player_curr_index:])
                 self.stdscr.refresh()
 
     def timer(self):
@@ -150,11 +155,10 @@ class Game():
                     self.curr_phrase.word_finish()
                     self.curr_phrase = None
 
-                if self.context.lsock:
-                    if self.multiplayer_handler():
-                        self.total_time += time.time() - self.word_start_time
-                        self.curr_phrase = None
-                        pass
+                elif self.multiplayer_handler():
+                    self.total_time += time.time() - self.word_start_time
+                    self.curr_phrase = None
+                    pass
 
             else:
                 utils.clear(self.stdscr)

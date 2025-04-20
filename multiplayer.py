@@ -66,13 +66,12 @@ def join(stdscr, context):
 # I know this is the exact same as the function above but honestly i dont care
 def get_username(stdscr, context):
     start_x = config.SCREEN_WIDTH//2 - 15
+
     stdscr.addstr(11, start_x, "Enter name:")
     rectangle(stdscr, 12, start_x, 14, start_x + 30)
     stdscr.refresh()
 
     name = ""
-
-    selected = 1
 
     cancel_btn = utils.Option(start_x, 15, "go back")
     confirm_btn = utils.Option(start_x + 15, 15, "yep i like that name")
@@ -113,21 +112,15 @@ def multiplayer_menu(stdscr, context):
     host_btn = utils.Option(config.SCREEN_WIDTH//2 - 5, 11, "host")
     join_btn = utils.Option(config.SCREEN_WIDTH//2 + 5, 11, "join")
     option_select = utils.OptionSelect(stdscr, [host_btn, join_btn])
-    selected = 1
 
     while True:
         selected = option_select.update_loop(stdscr)
 
-        if selected != -1:
-            break
-
-    # join
-    if selected == 1:
-        return join(stdscr, context)
-    elif selected == 0:
-        # host
-        pass
-    return utils.GameState.EXIT
+        if selected == 1:
+            return join(stdscr, context)
+        elif selected == 0:
+            # host
+            return utils.GameState.EXIT
 
 
 def lobby(stdscr, context):
@@ -205,7 +198,7 @@ def lobby(stdscr, context):
                 message = json.loads(recv)
 
                 # find name
-                for conn in context.players:
+                for conn in context.other_players:
                     if conn["id"] == message["id"]:
                         sender = conn["name"]
                         break
@@ -217,11 +210,14 @@ def lobby(stdscr, context):
                     chat_win.addstr(i + 1, 1, message)
                     chat_win.refresh()
             elif prefix == "p":
-                context.players = json.loads(recv)
-                for i, name in enumerate(context.players):
+                all_players = json.loads(recv)
+                context.other_players = []
+                for i, name in enumerate(all_players):
                     players_win.addstr(
                         i + 1, 1, name["name"] + "\t" + str(name["id"]))
                     players_win.refresh()
+                    if name["id"] != context.my_id:
+                        context.other_players.append(name)
             elif prefix == "s":
                 return utils.GameState.PLAY
             elif prefix == "o":
