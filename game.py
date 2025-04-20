@@ -4,7 +4,7 @@ import time
 import curses
 import select
 import json
-import math
+from math import ceil
 
 y = 3
 x = 3
@@ -12,7 +12,7 @@ x = 3
 
 class Game():
     survival_time = 5
-    bonus_time = 2
+    bonus_time = 1
     bar_width = 15
 
     def __init__(self, stdscr, context):
@@ -53,6 +53,7 @@ class Game():
         for conn in self.context.players:
             if conn["id"] != self.context.my_id:
                 self.stdscr.addstr(y + 3 + conn["id"], x + 1, current_phrase)
+        self.phrase_count += 1
         return Phrase(current_phrase, x, y, self.stdscr)
 
     def input_handler(self):
@@ -105,13 +106,27 @@ class Game():
         self.last_frame_time = time.time()
         self.time_left -= elapsed_time
 
-        progress = math.ceil(
+        progress = ceil(
             (self.time_left/self.survival_time * self.bar_width))
 
-        self.stdscr.addstr(1, 0, "time left: " + str(self.time_left))
-        self.stdscr.addstr(0, 0, "\u2588" * progress +
-                           "\u2591" * (self.bar_width - progress))
+        self.stdscr.addstr(0, 0, "\u2591" * self.bar_width)
+        self.stdscr.addstr(0, 0, "\u2588" * progress)
 
+        self.stdscr.refresh()
+
+    def add_timer(self, add):
+
+        curr_progress = ceil(
+            (self.time_left/self.survival_time * self.bar_width))
+
+        self.time_left = min(self.time_left + add, self.survival_time)
+
+        added_progress = ceil(
+            (self.time_left/self.survival_time * self.bar_width))
+
+        self.stdscr.addstr(0, 0, "\u2591" * self.bar_width)
+        self.stdscr.addstr(0, 0, "\u2592" * added_progress)
+        self.stdscr.addstr(0, 0, "\u2588" * curr_progress)
         self.stdscr.refresh()
 
     def survival(self):
@@ -124,11 +139,9 @@ class Game():
 
                 # When user finishes word
                 if self.input_handler():
-                    self.phrase_count += 1
 
                     # Add bonus time
-                    self.time_left = min(
-                        self.time_left + self.bonus_time, self.survival_time)
+                    self.add_timer(self.bonus_time)
 
                     # Add time to total time taken
                     self.total_time += time.time() - self.word_start_time
