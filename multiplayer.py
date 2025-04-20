@@ -44,7 +44,7 @@ def join(stdscr, context):
         if selected != -1:
             break
         if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
-            if key == curses.KEY_BACKSPACE:
+            if key in (curses.KEY_BACKSPACE, 8):
                 stdscr.addstr(13, start_x + 1, " " * 29)
                 ip = ip[:-1]
             elif chr(key).isnumeric() or chr(key) == ".":
@@ -85,7 +85,7 @@ def get_username(stdscr, context):
         if selected != -1:
             break
         if key != -1 and key != curses.KEY_LEFT and key != curses.KEY_RIGHT:
-            if key == curses.KEY_BACKSPACE:
+            if key in (curses.KEY_BACKSPACE, 8):
                 stdscr.addstr(13, start_x + 1, " " * 29)
                 name = name[:-1]
             else:
@@ -180,7 +180,7 @@ def lobby(stdscr, context):
                 settings_win.refresh()
 
             elif active_win == chat_win:
-                if key == curses.KEY_BACKSPACE:
+                if key in (curses.KEY_BACKSPACE, 8):
                     msg = msg[:-1]
                 elif key == 10:
                     if msg:
