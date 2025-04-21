@@ -50,9 +50,9 @@ class Game():
         else:
             difficulty = 3
             current_phrase = utils.generate_rand_word(difficulty)
-        for i, conn in enumerate(self.context.other_players):
-            if conn["id"] != self.context.my_id:
-                self.stdscr.addstr(y + 3 + i, x + 1, current_phrase)
+        for index, item in enumerate(self.context.other_players.items()):
+            self.stdscr.addstr(y + 3 + index, x + 1, current_phrase)
+
         self.phrase_count += 1
         return Phrase(current_phrase, x, y, self.stdscr)
 
@@ -94,16 +94,15 @@ class Game():
                 return True
 
             elif prefix == "i":
-                player = json.loads(message)
-                player_curr_index = player["index"]
+                p = json.loads(message)
 
                 # Search
-                for i, value in enumerate(self.context.other_players):
-                    if player["id"] == value["id"]:
+                for i, (id, _) in enumerate(self.context.other_players.items()):
+                    if p["id"] == id:
                         self.stdscr.addstr(y + 3 + i,
                                            x + 1,
-                                           " " * player_curr_index +
-                                           self.curr_phrase.phrase[player_curr_index:])
+                                           " " * p["index"] +
+                                           self.curr_phrase.phrase[p["index"]:])
                 self.stdscr.refresh()
 
     def timer(self):
@@ -155,7 +154,7 @@ class Game():
                     self.curr_phrase.word_finish()
                     self.curr_phrase = None
 
-                elif self.multiplayer_handler():
+                if self.multiplayer_handler():
                     self.total_time += time.time() - self.word_start_time
                     self.curr_phrase = None
                     pass

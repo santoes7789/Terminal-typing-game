@@ -78,9 +78,9 @@ sel.register(lsock, selectors.EVENT_READ)
 
 
 def format_conns_list():
-    player_list = []
+    player_list = {}
     for conn in connections:
-        player_list.append({"id": conn.id, "name": conn.name})
+        player_list[conn.id] = {"name": conn.name}
     message = "p" + json.dumps(player_list)
     return message.encode("utf-8")
 
@@ -135,7 +135,7 @@ def on_receive_message(sender, prefix, recv):
         word_index = 0
         send = "s".encode("utf-8")
         broadcast(send)
-        time.sleep(2)
+        time.sleep(1)
         send_new_word()
 
     elif prefix == "i":
@@ -153,7 +153,7 @@ def accept_new_connection(sock):
     conn, addr = sock.accept()
     conn.setblocking(False)
     print("Accepted connection from ", addr)
-    obj = Connection(sel, conn, addr, on_receive_message, next_id)
+    obj = Connection(sel, conn, addr, on_receive_message, str(next_id))
     connections.append(obj)
     sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, data=obj)
     obj.write_buffer += ("o" + str(next_id)).encode("utf-8")

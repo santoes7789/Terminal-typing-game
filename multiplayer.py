@@ -197,28 +197,36 @@ def lobby(stdscr, context):
             if prefix == "m":
                 message = json.loads(recv)
 
-                # find name
-                for conn in context.other_players:
-                    if conn["id"] == message["id"]:
-                        sender = conn["name"]
-                        break
-
+                # # find name
+                # for conn in context.other_players:
+                #     if conn["id"] == message["id"]:
+                #         sender = conn["name"]
+                #         break
+                if message["id"] == context.my_id:
+                    sender = context.player_name
+                else:
+                    sender = (context.other_players.get(message["id"]))["name"]
                 messages.append(sender + ": " + message["message"])
+
                 if len(messages) > config.PLAYER_WIN_HEIGHT - 2 - 3:
                     messages.pop(0)
+
                 for i, message in enumerate(messages):
                     chat_win.addstr(i + 1, 1, message)
                     chat_win.refresh()
+
             elif prefix == "p":
                 all_players = json.loads(recv)
-                context.other_players = []
-                for i, name in enumerate(all_players):
+                context.other_players = {}
+                for index, (player_id, player) in enumerate(all_players.items()):
                     players_win.addstr(
-                        i + 1, 1, name["name"] + "\t" + str(name["id"]))
+                        index + 1, 1, player["name"] + "\t" + player_id)
                     players_win.refresh()
-                    if name["id"] != context.my_id:
-                        context.other_players.append(name)
+
+                    if player_id != context.my_id:
+                        context.other_players[player_id] = player
+
             elif prefix == "s":
                 return utils.GameState.PLAY
             elif prefix == "o":
-                context.my_id = int(recv)
+                context.my_id = recv
