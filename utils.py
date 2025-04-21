@@ -20,7 +20,7 @@ class Context():
 
         self.game_mode = None
 
-        self.players = []
+        self.other_players = {}
         self.lsock = None
         self.my_id = None
 
@@ -148,3 +148,8 @@ def sort_word_bank():
             for word in sub:
                 file.write(f"{word}\n")
             file.write("\n")
+
+
+def debug(message):
+    with open("output.txt", "a") as f:
+        f.write(f"{message}\n")
