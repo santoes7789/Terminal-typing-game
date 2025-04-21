@@ -12,7 +12,7 @@ x = 3
 
 class Game():
     survival_time = 15
-    bonus_time = 1
+    bonus_time = 2
     bar_width = 50
 
     def __init__(self, stdscr, context):
@@ -26,6 +26,8 @@ class Game():
         self.phrase_count = 0
 
         self.curr_phrase = None
+
+        self.score = 0
 
     def accuracy(self):
         if self.total_char_typed == 0:
@@ -48,7 +50,7 @@ class Game():
                     current_phrase = message
                     break
         else:
-            difficulty = 3
+            difficulty = int(min(self.phrase_count/5, utils.word_list_lim))
             current_phrase = utils.generate_rand_word(difficulty)
         for index, item in enumerate(self.context.other_players.items()):
             self.stdscr.addstr(y + 3 + index, x + 1, current_phrase)
@@ -215,7 +217,7 @@ class Phrase():
 def score_screen(stdscr, game):
     utils.clear(stdscr)
     stdscr.addstr(
-        4, 4, "Haha you lost. Your score was: {}".format(game.phrase_count))
+        4, 4, "Haha you lost. Your score was: {}".format(game.score))
     stdscr.addstr(6, 4, "Your typing speed was: {:.0f} WPM".format(
         game.typing_speed()))
     stdscr.addstr(7, 4, "Your accuracy was: {:.2f}%".format(game.accuracy()))

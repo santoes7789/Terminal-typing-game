@@ -95,7 +95,7 @@ def parse_message(lsock):
 
 
 lines = []
-index = 0
+phrase_index = 0
 line_difficulties = 8
 with open("word_bank", "r") as file:
     content = file.read()
@@ -107,9 +107,9 @@ for i in range(len(sections)):
 
 
 def generate_rand_word(difficulty):
-    global index
-    word = (lines[difficulty])[index].strip()
-    index += 1
+    global phrase_index
+    word = (lines[difficulty])[phrase_index].strip()
+    phrase_index += 1
     return word
 
 
@@ -120,6 +120,9 @@ def clear(stdscr):
               config.SCREEN_HEIGHT - 1 + config.BORDER,
               config.SCREEN_WIDTH - 1 + config.BORDER)
     stdscr.refresh()
+
+
+word_list_lim = 7
 
 
 def sort_word_bank():
