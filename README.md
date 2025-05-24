@@ -1,14 +1,6 @@
-# Terminal typing game! 
+# Digital Technologies Internal
+91896 and 91897 Standards
 
-this is not even close to finishing so dont judge you ignorant twat
-
-run with `python main.py`
-
-if on windows, install curses library with:
-
-```
-pip install windows-curses
-```
-
+Requires colorama module
 
 
