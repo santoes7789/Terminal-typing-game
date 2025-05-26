@@ -14,6 +14,13 @@ class GameState(Enum):
     MULTIPLAYER = 5
 
 
+class InGameState(Enum):
+    TYPING = 0
+    FINISHED = 1
+    NEW_PHRASE = 2
+    DONE = 3
+
+
 class Context():
     def __init__(self):
         self.player_name = ""
@@ -100,6 +107,7 @@ line_difficulties = 8
 with open("word_bank", "r") as file:
     content = file.read()
 sections = content.split("\n\n")
+print(len(sections))
 for i in range(len(sections)):
     sec = sections[i].split("\n")
     random.shuffle(sec)

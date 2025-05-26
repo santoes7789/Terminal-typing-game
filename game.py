@@ -5,6 +5,7 @@ import curses
 import select
 import json
 from math import ceil
+from utils import InGameState
 
 y = 3
 x = 3
@@ -28,6 +29,8 @@ class Game():
         self.curr_phrase = None
 
         self.score = 0
+
+        self.state = InGameState.NEW_PHRASE
 
     def accuracy(self):
         if self.total_char_typed == 0:
@@ -84,8 +87,6 @@ class Game():
         return False
 
     def multiplayer_handler(self):
-        if not self.context.lsock:
-            return False
 
         read_ready, _, _ = select.select([self.context.lsock], [], [], 0)
 
@@ -93,7 +94,7 @@ class Game():
             prefix, message = utils.parse_message(self.context.lsock)
 
             if prefix == "f" and message == str(self.phrase_count):
-                return True
+                self.state = InGameState.NEW_PHRASE
 
             elif prefix == "i":
                 p = json.loads(message)
@@ -111,6 +112,7 @@ class Game():
         elapsed_time = time.time() - self.last_frame_time
         self.last_frame_time = time.time()
         self.time_left -= elapsed_time
+        self.time_left = max(0, self.time_left)
 
         progress = ceil(
             (self.time_left/self.survival_time * self.bar_width))
@@ -120,7 +122,7 @@ class Game():
 
         self.stdscr.refresh()
 
-    def add_timer(self, add):
+    def add_time(self, add):
 
         curr_progress = ceil(
             (self.time_left/self.survival_time * self.bar_width))
@@ -135,37 +137,52 @@ class Game():
         self.stdscr.addstr(0, 0, "\u2588" * curr_progress)
         self.stdscr.refresh()
 
+    def typing(self):
+        self.timer()
+        # When user finishes word
+        if self.input_handler():
+            # Add bonus time
+            self.add_time(self.bonus_time)
+
+            # Add time to total time taken
+            self.total_time += time.time() - self.word_start_time
+
+            # Flash word
+            self.curr_phrase.word_finish()
+
+            self.state = InGameState.FINISHED
+
+    def finished_phrase(self):
+        if not self.context.lsock:
+            self.state = InGameState.NEW_PHRASE
+
+    def new_phrase(self):
+        utils.clear(self.stdscr)
+        self.curr_phrase = self.get_word()
+        self.word_start_time = time.time()
+        self.last_frame_time = time.time()
+        self.state = InGameState.TYPING
+
     def survival(self):
         self.time_left = self.survival_time
 
-        while self.time_left > 0:
+        state_handlers = {
+            InGameState.TYPING: self.typing,
+            InGameState.NEW_PHRASE: self.new_phrase,
+            InGameState.FINISHED: self.finished_phrase
+        }
 
-            if self.curr_phrase:
-                self.timer()
+        # Surely theres a better way to do all this
+        while self.state != InGameState.DONE:
+            state_handlers[self.state]()
 
-                # When user finishes word
-                if self.input_handler():
-
-                    # Add bonus time
-                    self.add_timer(self.bonus_time)
-
-                    # Add time to total time taken
-                    self.total_time += time.time() - self.word_start_time
-
-                    # Flash word and remove thingy
-                    self.curr_phrase.word_finish()
-                    self.curr_phrase = None
-
-                if self.multiplayer_handler():
-                    self.total_time += time.time() - self.word_start_time
-                    self.curr_phrase = None
-                    pass
+            if self.context.lsock:
+                self.multiplayer_handler()
 
             else:
-                utils.clear(self.stdscr)
-                self.curr_phrase = self.get_word()
-                self.word_start_time = time.time()
-                self.last_frame_time = time.time()
+                if self.time_left <= 0:
+                    self.state = InGameState.DONE
+                    break
 
 
 class Phrase():

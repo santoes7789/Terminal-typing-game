@@ -13,9 +13,15 @@ connections = []
 next_id = 1
 phrase_count = 0
 current_phrase = ""
+done = 0
 
 
-class Connection:
+class Player():
+    def __init__(self, connection):
+        self.connection = connection
+
+
+class Connection():
     def __init__(self, selector, sock, addr, onrecv, id):
         self.selector = selector
         self.sock = sock
@@ -105,7 +111,7 @@ def format_conns_list():
 # i -> broadcast for index of work
 
 def on_receive_message(sender, prefix, recv):
-    global phrase_count
+    global phrase_count, done
 
     def broadcast(message):
         for conn in connections:
@@ -144,7 +150,11 @@ def on_receive_message(sender, prefix, recv):
         send = ("i" + json.dumps(message)).encode("utf-8")
         broadcast(send)
         if (int(recv) == len(current_phrase)):
+            done += 1
+
+        if done >= len(connections):
             send = ("f" + str(phrase_count)).encode("utf-8")
+            done = 0
             broadcast(send)
             send_new_word()
 
