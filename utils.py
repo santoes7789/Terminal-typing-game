@@ -43,21 +43,22 @@ class OptionSelect():
     def __init__(self, stdscr, options, selected=0):
         self.options = options
         self.selected = selected
-        self.draw(stdscr)
+        self.stdscr = stdscr
+        self.draw()
 
-    def draw(self, stdscr):
+    def draw(self):
         for index, option in enumerate(self.options):
             if index == self.selected:
                 format = curses.A_STANDOUT
             else:
                 format = curses.A_NORMAL
-            stdscr.addstr(option.y, option.x, option.string, format)
+            self.stdscr.addstr(option.y, option.x, option.string, format)
 
     def update_loop(self, stdscr, _key=None):
         if _key:
             key = _key
         else:
-            key = stdscr.getch()
+            key = self.stdscr.getch()
 
         if key != -1:
             if key in (curses.KEY_RIGHT, curses.KEY_DOWN):
@@ -66,7 +67,7 @@ class OptionSelect():
                 self.selected = max(0, self.selected - 1)
             elif key == 10:
                 return self.selected
-            self.draw(stdscr)
+            self.draw()
 
         return -1
 
