@@ -35,6 +35,7 @@ def main_menu(stdscr, context):
 
 def main(stdscr):
     curses.curs_set(0)
+    curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
     stdscr.nodelay(True)
     state = utils.GameState.MAIN_MENU
 

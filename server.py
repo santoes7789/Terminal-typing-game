@@ -16,11 +16,6 @@ current_phrase = ""
 done = 0
 
 
-class Player():
-    def __init__(self, connection):
-        self.connection = connection
-
-
 class Connection():
     def __init__(self, selector, sock, addr, onrecv, id):
         self.selector = selector
@@ -30,6 +25,9 @@ class Connection():
         self.write_buffer = b""
         self.name = ""
         self.id = id
+
+        self.alive = True
+        self.done = False
 
     def close(self):
         print("Disconnected ", self.addr)
@@ -118,6 +116,18 @@ def on_receive_message(sender, prefix, recv):
             conn.write_buffer += message
             conn.write()
 
+    def check_to_send_new_word():
+        allDone = True
+        for conn in connections:
+            if conn.alive and not conn.done:
+                allDone = False
+        if allDone:
+            send = ("f" + str(phrase_count)).encode("utf-8")
+            for conn in connections:
+                conn.done = False
+            broadcast(send)
+            send_new_word()
+
     def send_new_word():
         global current_phrase, phrase_count
         difficulty = int(min(phrase_count/5, utils.word_list_lim))
@@ -145,18 +155,18 @@ def on_receive_message(sender, prefix, recv):
         time.sleep(1)
         send_new_word()
 
+    elif prefix == "d":
+        sender.alive = False
+        check_to_send_new_word()
+
     elif prefix == "i":
         message = {"id": sender.id, "index": int(recv)}
         send = ("i" + json.dumps(message)).encode("utf-8")
         broadcast(send)
         if (int(recv) == len(current_phrase)):
-            done += 1
+            sender.done = True
 
-        if done >= len(connections):
-            send = ("f" + str(phrase_count)).encode("utf-8")
-            done = 0
-            broadcast(send)
-            send_new_word()
+        check_to_send_new_word()
 
 
 def accept_new_connection(sock):

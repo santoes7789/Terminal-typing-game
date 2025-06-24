@@ -12,7 +12,7 @@ x = 3
 
 
 class Game():
-    survival_time = 15
+    survival_time = 10
     bonus_time = 2
     bar_width = 50
 
@@ -85,6 +85,27 @@ class Game():
             return True
 
         return False
+
+    def lose(self):
+        win_height = 8
+        win_width = 30
+        win = curses.newwin(win_height, win_width,
+                            config.SCREEN_HEIGHT//2,
+                            config.SCREEN_WIDTH//2 - 13)
+        win.nodelay(True)
+        win.keypad(True)
+        win.box()
+        win.addstr(2, win_width//2 - 4,
+                   "YOU LOST", curses.color_pair(1))
+
+        utils.send_message(self.context.lsock, "d", encode=True)
+        leave_btn = utils.Option(3, 4, "leave room")
+        spectate_btn = utils.Option(15, 4, "spectate")
+
+        option_select = utils.OptionSelect(win,
+                                           [leave_btn, spectate_btn])
+        while True:
+            option_select.update_loop(win)
 
     def multiplayer_handler(self):
 
@@ -179,10 +200,10 @@ class Game():
             if self.context.lsock:
                 self.multiplayer_handler()
 
-            else:
-                if self.time_left <= 0:
-                    self.state = InGameState.DONE
-                    break
+            if self.time_left <= 0:
+                self.lose()
+                # self.state = InGameState.DONE
+                # break
 
 
 class Phrase():
