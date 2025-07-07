@@ -1,199 +1,118 @@
 import socket
 import selectors
-import json
-import config
-import utils
-import time
 
-HOST = ""
-PORT = config.PORT
-
-
-connections = []
-next_id = 1
-phrase_count = 0
-current_phrase = ""
-done = 0
-
-
-class Connection():
-    def __init__(self, selector, sock, addr, onrecv, id):
-        self.selector = selector
-        self.sock = sock
-        self.addr = addr
-        self.onrecv = onrecv
-        self.write_buffer = b""
-        self.name = ""
-        self.id = id
-
-        self.alive = True
-        self.done = False
-
-    def close(self):
-        print("Disconnected ", self.addr)
-        self.selector.unregister(self.sock)
-        self.sock.close()
-        connections.remove(self)
-
-    def write(self):
-        if self.write_buffer:
-            try:
-                utils.send_message(self.sock, self.write_buffer)
-            except Exception as e:
-                print(e)
-                self.close()
-                return
-
-            print("Sent '" + self.write_buffer.decode(
-                "utf-8") + "' to ", self.addr)
-            self.write_buffer = b""
-
-    def read(self):
-        try:
-            prefix, recv_data = utils.parse_message(self.sock)
-        except Exception as e:
-            print(e)
-            self.close()
-            return
-        print("Recieved from {}: ({}) {}".format(
-            self.addr, prefix, recv_data))
-
-        self.onrecv(self, prefix, recv_data)
-
-    def process_events(self, mask):
-        if mask & selectors.EVENT_WRITE:
-            self.write()
-
-        if mask & selectors.EVENT_READ:
-            self.read()
+from config import PORT
+from utils import send_msg, receive_msg
 
 
 sel = selectors.DefaultSelector()
 
-lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+players = []
 
-lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-lsock.bind((HOST, PORT))
-lsock.listen()
-print("Listening on {}".format((HOST, PORT)))
-lsock.setblocking(False)
+in_lobby = True
 
-sel.register(lsock, selectors.EVENT_READ)
+next_id = 0
 
 
-def format_conns_list():
-    player_list = {}
-    for conn in connections:
-        player_list[conn.id] = {"name": conn.name}
-    message = "p" + json.dumps(player_list)
-    return message.encode("utf-8")
+class Client():
+    def __init__(self, sock, addr, id):
+        # Network
+        self.sock = sock
+        self.addr = addr
+
+        # Player info
+        self.id = id
+        self.name = ""
+
+        # Game info
+        self.isAlive = True
+
+    def send(self, message):
+        send_msg(self.sock, message)
+        print("Sent [", message, "] to ", self.addr)
+
+    def read(self):
+        try:
+            message = receive_msg(self.sock)
+            print("receieved [", message, "] from ", self.addr)
+            self.manage_request(message)
+        except ConnectionResetError:
+            self.close()
+
+    def close(self):
+        print("Connection closed with client from ", self.addr)
+
+        sel.unregister(self.sock)
+        self.sock.close()
+        players.remove(self)
+
+    def manage_request(self, message):
+        prefix, content = message
+        if in_lobby:
+            # gives name
+            if prefix == "n":
+                self.name = content
+
+            # sends message to chat
+            elif prefix == "m":
+                msg = ("m", {"id": self.id, "message": content})
+                broadcast(msg)
+
+            # starts game
+            elif prefix == "s":
+                msg = ("m", {"id": 0, "message": "GAME STARTING!"})
+                broadcast(msg)
 
 
-# message prefixes:
-# client request
-# lobby:
-# p -> client requests for full player list
-# m -> client sends message
-# n -> client request to set/change name
-# s -> client requests to start game
-
-# game:
-# i -> client to tell what index of word they are on
+def broadcast(message):
+    for conn in players:
+        conn.send(message)
 
 
-# server request
-# o -> give client id
-# w -> give client word
-# f -> notify word has finished
-# s -> tell client to start game
-# i -> broadcast for index of work
-
-def on_receive_message(sender, prefix, recv):
-    global phrase_count, done
-
-    def broadcast(message):
-        for conn in connections:
-            conn.write_buffer += message
-            conn.write()
-
-    def check_to_send_new_word():
-        allDone = True
-        for conn in connections:
-            if conn.alive and not conn.done:
-                allDone = False
-        if allDone:
-            send = ("f" + str(phrase_count)).encode("utf-8")
-            for conn in connections:
-                conn.done = False
-            broadcast(send)
-            send_new_word()
-
-    def send_new_word():
-        global current_phrase, phrase_count
-        difficulty = int(min(phrase_count/5, utils.word_list_lim))
-        current_phrase = utils.generate_rand_word(difficulty)
-        phrase_count += 1
-        send = ("w" + current_phrase).encode("utf-8")
-        broadcast(send)
-
-    if prefix == "p":
-        broadcast(format_conns_list())
-
-    elif prefix == "m":
-        message = {"id": sender.id, "message": recv}
-        send = ("m" + json.dumps(message)).encode("utf-8")
-        broadcast(send)
-
-    elif prefix == "n":
-        sender.name = recv
-        broadcast(format_conns_list())
-
-    elif prefix == "s":
-        phrase_count = 0
-        send = "s".encode("utf-8")
-        broadcast(send)
-        time.sleep(1)
-        send_new_word()
-
-    elif prefix == "d":
-        sender.alive = False
-        check_to_send_new_word()
-
-    elif prefix == "i":
-        message = {"id": sender.id, "index": int(recv)}
-        send = ("i" + json.dumps(message)).encode("utf-8")
-        broadcast(send)
-        if (int(recv) == len(current_phrase)):
-            sender.done = True
-
-        check_to_send_new_word()
-
-
-def accept_new_connection(sock):
-    global next_id
+def accept(sock):
     conn, addr = sock.accept()
     conn.setblocking(False)
+
     print("Accepted connection from ", addr)
-    obj = Connection(sel, conn, addr, on_receive_message, str(next_id))
-    connections.append(obj)
-    sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, data=obj)
-    obj.write_buffer += ("o" + str(next_id)).encode("utf-8")
-    obj.write()
-    next_id += 1
+
+    client_id = generate_id()
+    client_obj = Client(conn, addr, client_id)
+    players.append(client_obj)
+
+    print("New client given id of :", client_id)
+
+    sel.register(conn, selectors.EVENT_READ, data=client_obj)
 
 
-try:
+def init_server():
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    lsock.bind(("0.0.0.0", PORT))
+    lsock.listen()
+
+    lsock.setblocking(False)
+
+    print("Server started!")
+    print("Listening on PORT:", PORT)
+
+    sel.register(lsock, selectors.EVENT_READ)
+
+
+def update_loop():
     while True:
         events = sel.select(timeout=None)
-        for key, mask in events:
-            if key.data is None:
-                accept_new_connection(key.fileobj)
-            else:
-                key.data.process_events(mask)
+        for key, mask, in events:
+            if in_lobby and key.data is None:
+                accept(key.fileobj)
+            elif key.data:
+                key.data.read()
 
-except KeyboardInterrupt:
-    print("\nCaught keyboard interrupt, exiting")
-finally:
-    print("Closing socket")
-    sel.close()
-    lsock.close()
+
+def generate_id():
+    global next_id
+    next_id += 1
+    return next_id
+
+
+init_server()
+update_loop()

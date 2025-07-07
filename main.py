@@ -1,58 +1,37 @@
 import curses
-import game
 import multiplayer
-import utils
-import config
+
+from game import game
+from utils import SelectScreen
 
 
-def main_menu(stdscr, context):
-    utils.clear(stdscr)
+class TitleState(SelectScreen):
+    def __init__(self):
+        options = ["Singleplayer",
+                   "Multiplayer",
+                   "Quit"]
 
-    middle = config.SCREEN_WIDTH//2
+        callbacks = [lambda: game.change_state(None),
+                     lambda: game.change_state(
+                         multiplayer.MultiplayerMenuState()),
+                     lambda: game.change_state(None)]
 
-    title = "the best typing game"
-
-    stdscr.addstr(9, (middle -
-                  len(title)//2 + config.BORDER), title)
-
-    start_btn = utils.Option(middle, 12, "play")
-    multiplayer_btn = utils.Option(middle, 13, "multiplayer")
-    exit_btn = utils.Option(middle, 14, "exit")
-    option_select = utils.OptionSelect(stdscr,
-                                       [start_btn, multiplayer_btn, exit_btn])
-    while True:
-        selected = option_select.update_loop(stdscr)
-        if selected != -1:
-            break
-
-    if selected == 0:
-        return utils.GameState.PLAY
-    elif selected == 1:
-        return utils.GameState.MULTIPLAYER
-    elif selected == 2:
-        return utils.GameState.EXIT
+        super().__init__("Menu", options, callbacks)
 
 
 def main(stdscr):
     curses.curs_set(0)
-    curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
     stdscr.nodelay(True)
-    state = utils.GameState.MAIN_MENU
 
-    state_handlers = {
-        utils.GameState.MAIN_MENU: main_menu,
-        utils.GameState.PLAY: game.play,
-        utils.GameState.MULTIPLAYER: multiplayer.multiplayer_menu,
-        utils.GameState.LOBBY: multiplayer.lobby, }
+    game.stdscr = stdscr
+    game.change_state(TitleState())
 
-    context = utils.Context()
-
-    while state != utils.GameState.EXIT:
-        handler = state_handlers.get(state)
-        state = handler(stdscr, context)
+    while game.state:
+        game.update()
 
 
-try:
-    curses.wrapper(main)
-except KeyboardInterrupt:
-    print("keyboard interrupt detected, program exited")
+if __name__ == "__main__":
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt detected, exiting program")
