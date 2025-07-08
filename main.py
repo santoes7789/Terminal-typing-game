@@ -4,6 +4,9 @@ import multiplayer
 from game import game
 from utils import SelectScreen
 
+# Bugs:
+# When server closes nothing happens to clients
+
 
 class TitleState(SelectScreen):
     def __init__(self):

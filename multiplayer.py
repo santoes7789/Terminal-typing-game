@@ -16,26 +16,29 @@ names = [
     "Fox", "Lion", "Hawk", "Bear", "Snake", "Raven", "Cobra"
 ]
 
+
 # TCP related things
 tcp_recv_queue = Queue()
-stop_tcp_thread = threading.Event()
+tcp_thread = None
 
 
 def tcp_recv_thread():
     game.lsock.settimeout(None)
-    while not stop_tcp_thread.is_set():
+    while True:
+        try:
+            message = utils.receive_msg(game.lsock)
+            tcp_recv_queue.put(message)
+        except ConnectionResetError:
+            break
 
-        message = utils.receive_msg(game.lsock)
-        tcp_recv_queue.put(message)
-
-        with open("debug.log", "a") as f:
-            f.write("Hey i think i got something\n")
+    utils.debug("Tcp thread stopping")
 
 
 def disconnect():
+    game.lsock.shutdown(socket.SHUT_RDWR)
     game.lsock.close()
     game.lsock = None
-    stop_tcp_thread.set()
+    tcp_thread.join()
 
 
 # Asks whether to host or join
@@ -76,15 +79,17 @@ class IpInputState():
                 game.lsock.settimeout(5.0)
                 game.lsock.connect((self.ip, PORT))
 
-                stop_tcp_thread.clear()
-                threading.Thread(target=tcp_recv_thread, daemon=True).start()
+                global tcp_thread
+                tcp_thread = threading.Thread(
+                    target=tcp_recv_thread, daemon=True)
+                tcp_thread.start()
 
                 game.change_state(LobbyState())
-
-            except Exception:
+            except Exception as e:
                 game.lsock = None
                 game.change_state(utils.PopupState("Could not connect to server",
                                                    main.TitleState))
+                utils.debug(str(e))
         elif key != -1:
             if key in (curses.KEY_BACKSPACE, 8):
                 self.ip = self.ip[:-1]
@@ -94,7 +99,6 @@ class IpInputState():
             self.draw()
 
 
-# HEYYYYY I NEED TO STOP THE THREADING AND SOCKET WHEN THEY GO BACK TO TITLESTATE
 class LobbyState():
     def __init__(self):
         game.name = random.choice(names)
@@ -102,8 +106,7 @@ class LobbyState():
 
         options = ["Start game", "Leave lobby"]
 
-        callbacks = [self.start_game,
-                     lambda: game.change_state(main.TitleState())]
+        callbacks = [self.start_game, self.leave_lobby]
 
         self.options = utils.OptionSelect(
             game.stdscr, options, callbacks, 2, 0)
@@ -130,3 +133,7 @@ class LobbyState():
 
     def start_game(self):
         utils.send_msg(game.lsock, ("s", ""))
+
+    def leave_lobby(self):
+        disconnect()
+        game.change_state(main.TitleState())
