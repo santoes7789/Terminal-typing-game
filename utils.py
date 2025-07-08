@@ -33,6 +33,9 @@ class OptionSelect():
         for index, text in enumerate(self.options):
             self.stdscr.addstr(index + self.y, 3 + self.x, text)
 
+        self.stdscr.addch(self.choice + 2, self.x + 1, '>')
+        self.stdscr.refresh()
+
     def update_loop(self):
 
         key = self.stdscr.getch()
@@ -44,12 +47,7 @@ class OptionSelect():
             self.callback[self.choice]()
             return
 
-        # Update screen
-        for i in range(2, 5):
-            self.stdscr.addch(i, self.x + 1, ' ')
-
-        self.stdscr.addch(self.choice + 2, self.x + 1, '>')
-        self.stdscr.refresh()
+        self.draw()
 
 
 class PopupState():

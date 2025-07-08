@@ -58,12 +58,15 @@ class MultiplayerMenuState(utils.SelectScreen):
 # Gets ip address for joining
 class IpInputState():
     def __init__(self):
+        self.ip = ""
+        self.draw()
+
+    def draw(self):
         game.stdscr.clear()
         game.stdscr.addstr(0, 0, "Multiplayer")
-
         game.stdscr.addstr(2, 3, "Ip Address:")
+        game.stdscr.addstr(2, 15, self.ip)
         game.stdscr.refresh()
-        self.ip = ""
 
     def update(self):
         key = game.stdscr.getch()
@@ -83,13 +86,12 @@ class IpInputState():
                 game.change_state(utils.PopupState("Could not connect to server",
                                                    main.TitleState))
         elif key != -1:
-            game.stdscr.addstr(2, 15, " " * len(self.ip))
-
             if key in (curses.KEY_BACKSPACE, 8):
                 self.ip = self.ip[:-1]
             else:
                 self.ip += chr(key)
-            game.stdscr.addstr(2, 15, self.ip)
+
+            self.draw()
 
 
 # HEYYYYY I NEED TO STOP THE THREADING AND SOCKET WHEN THEY GO BACK TO TITLESTATE
