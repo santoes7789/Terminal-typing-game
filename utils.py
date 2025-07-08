@@ -1,5 +1,6 @@
 import curses
 import pickle
+import time
 from game import game
 
 
@@ -64,15 +65,18 @@ class PopupState():
         self.win.addstr(2, 3, message)
         self.win.refresh()
 
+    def clear(self):
+        self.win.clear()
+        self.win.refresh()
+        del self.win
+
     def update(self):
-        if self.win.getch():
-            self.win.clear()
-            self.win.refresh()
-            del self.win
-            game.change_state(self.new_state())
+        time.sleep(2)
+        self.clear()
+        game.change_state(self.new_state())
 
 
-def send_msg(lsock, message):
+def send_tcp(lsock, message):
     message = pickle.dumps(message)
 
     msg_length = len(message)
@@ -80,7 +84,7 @@ def send_msg(lsock, message):
     lsock.sendall(msg_length.to_bytes(4, "big") + message)
 
 
-def receive_msg(lsock):
+def receive_tcp(lsock):
     msg_length = lsock.recv(4)
 
     if not msg_length:

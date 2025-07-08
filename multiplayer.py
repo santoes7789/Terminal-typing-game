@@ -26,7 +26,7 @@ def tcp_recv_thread():
     game.lsock.settimeout(None)
     while True:
         try:
-            message = utils.receive_msg(game.lsock)
+            message = utils.receive_tcp(game.lsock)
             tcp_recv_queue.put(message)
         except ConnectionResetError:
             break
@@ -101,8 +101,8 @@ class IpInputState():
 
 class LobbyState():
     def __init__(self):
-        game.name = random.choice(names)
-        utils.send_msg(game.lsock, ("n", game.name))
+        game.player_name = random.choice(names)
+        utils.send_tcp(game.lsock, ("n", game.player_name))
 
         options = ["Start game", "Leave lobby"]
 
@@ -131,9 +131,46 @@ class LobbyState():
                 for index, name in enumerate(content.values()):
                     game.stdscr.addstr(2 + index, 20, name)
 
+            elif prefix == "s":
+                game.change_state(utils.PopupState(
+                    "Game starting!!", MultiplayerGameState))
+
     def start_game(self):
-        utils.send_msg(game.lsock, ("s", ""))
+        utils.send_tcp(game.lsock, ("s", ""))
 
     def leave_lobby(self):
         disconnect()
         game.change_state(main.TitleState())
+
+
+class MultiplayerGameState():
+    def __init__(self):
+        utils.send_tcp(game.lsock, ("r", ""))
+        self.current_word = ""
+        self.draw()
+
+    def draw(self):
+        game.stdscr.clear()
+        game.stdscr.addstr(0, 0, "Game")
+
+        # print words out
+        game.stdscr.addstr(3, 5, game.player_name + ":")
+        game.stdscr.addstr(3, 25, self.current_word)
+
+        index = 1
+        for player_name in game.player_list.values():
+            if player_name != game.player_name:
+                game.stdscr.addstr(3 + index, 5, player_name + ":")
+                game.stdscr.addstr(3 + index, 25, self.current_word)
+
+                index += 1
+
+        game.stdscr.refresh()
+
+    def update(self):
+        if not tcp_recv_queue.empty():
+            prefix, content = tcp_recv_queue.get()
+
+            if prefix == "w":
+                self.current_word = content
+                self.draw()

@@ -1,8 +1,9 @@
 import socket
 import selectors
+import random
 
 from config import PORT
-from utils import send_msg, receive_msg
+from utils import send_tcp, receive_tcp
 
 
 sel = selectors.DefaultSelector()
@@ -12,6 +13,13 @@ players = []
 in_lobby = True
 
 next_id = 0
+
+# will delete later and use word bank but this is fine for now
+word_bank = [
+    "cat", "umbrella", "zebra", "quantum", "sky", "incredible", "do", "pixel",
+    "fluctuate", "eagle", "zen", "mythology", "blip", "serendipity", "on",
+    "wander", "crimson", "go", "reverberation", "elm"
+]
 
 
 class Client():
@@ -26,14 +34,15 @@ class Client():
 
         # Game info
         self.isAlive = True
+        self.ready = False  # ready for next word
 
     def send(self, message):
-        send_msg(self.sock, message)
+        send_tcp(self.sock, message)
         print("Sent [", message, "] to ", self.addr)
 
     def read(self):
         try:
-            message = receive_msg(self.sock)
+            message = receive_tcp(self.sock)
             print("receieved [", message, "] from ", self.addr)
             self.manage_request(message)
         except ConnectionResetError:
@@ -50,6 +59,8 @@ class Client():
 
     def manage_request(self, message):
         prefix, content = message
+
+        global in_lobby
         if in_lobby:
             # gives name, sends complete player list to all
             if prefix == "n":
@@ -63,8 +74,17 @@ class Client():
 
             # starts game
             elif prefix == "s":
-                msg = ("m", {"id": 0, "message": "GAME STARTING!"})
+                msg = ("s", "")
                 broadcast(msg)
+                in_lobby = False
+                print("GAME STARTED")
+        else:
+            # check if all players are ready
+            if prefix == "r":
+                self.ready = True
+
+                if all(player.ready for player in players):
+                    send_new_word()
 
 
 def broadcast(message):
@@ -78,6 +98,12 @@ def send_player_list():
         player_dict[conn.id] = conn.name
 
     msg = ("p", player_dict)
+    broadcast(msg)
+
+
+def send_new_word():
+    word = random.choice(word_bank)
+    msg = ("w", word)
     broadcast(msg)
 
 
