@@ -42,16 +42,19 @@ class Client():
     def close(self):
         print("Connection closed with client from ", self.addr)
 
+        players.remove(self)
+        send_player_list()
+
         sel.unregister(self.sock)
         self.sock.close()
-        players.remove(self)
 
     def manage_request(self, message):
         prefix, content = message
         if in_lobby:
-            # gives name
+            # gives name, sends complete player list to all
             if prefix == "n":
                 self.name = content
+                send_player_list()
 
             # sends message to chat
             elif prefix == "m":
@@ -67,6 +70,15 @@ class Client():
 def broadcast(message):
     for conn in players:
         conn.send(message)
+
+
+def send_player_list():
+    player_dict = {}
+    for conn in players:
+        player_dict[conn.id] = conn.name
+
+        msg = ("p", player_dict)
+    broadcast(msg)
 
 
 def accept(sock):
