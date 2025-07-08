@@ -95,3 +95,8 @@ def receive_msg(lsock):
 
     recv_data = pickle.loads(recv_data)
     return recv_data
+
+
+def debug(message):
+    with open("debug.log", "a") as f:
+        f.write(message + "\n")
