@@ -77,7 +77,7 @@ def send_player_list():
     for conn in players:
         player_dict[conn.id] = conn.name
 
-        msg = ("p", player_dict)
+    msg = ("p", player_dict)
     broadcast(msg)
 
 
