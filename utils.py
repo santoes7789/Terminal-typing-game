@@ -39,15 +39,18 @@ class OptionSelect():
     def update_loop(self):
 
         key = self.stdscr.getch()
-        if key == curses.KEY_DOWN:
-            self.choice = min(len(self.options) - 1, self.choice + 1)
-        elif key == curses.KEY_UP:
-            self.choice = max(0, self.choice - 1)
-        elif key in (10, 13):
-            self.callback[self.choice]()
-            return
+        if key != - 1:
+            if key == curses.KEY_DOWN:
+                self.choice = min(len(self.options) - 1, self.choice + 1)
+            elif key == curses.KEY_UP:
+                self.choice = max(0, self.choice - 1)
+            elif key in (10, 13):
+                self.callback[self.choice]()
+                return
+            for i in range(0, len(self.options)):
+                self.stdscr.addch(i + 2, self.x + 1, ' ')
 
-        self.draw()
+            self.stdscr.addch(self.choice + 2, self.x + 1, '>')
 
 
 class PopupState():
