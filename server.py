@@ -40,12 +40,12 @@ class Client():
 
     def send(self, message):
         send_tcp(self.sock, message)
-        print("Sent [", message, "] to ", self.addr)
+        print("(tcp) Sent [", message, "] to ", self.addr)
 
     def read(self):
         try:
             message = receive_tcp(self.sock)
-            print("receieved [", message, "] from ", self.addr)
+            print("(tcp) receieved [", message, "] from ", self.addr)
             self.manage_request(message)
         except ConnectionResetError:
             self.close()
