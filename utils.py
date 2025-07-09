@@ -101,6 +101,18 @@ def receive_tcp(lsock):
     return recv_data
 
 
+def send_udp(lsock, message, addr):
+    message = pickle.dumps(message)
+
+    lsock.sendto(message, addr)
+
+
+def receive_udp(lsock):
+    data, addr = lsock.recvfrom(1024)
+    data = pickle.loads(data)
+    return data, addr
+
+
 def debug(message):
     with open("debug.log", "a") as f:
         f.write(message + "\n")

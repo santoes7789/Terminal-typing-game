@@ -4,7 +4,7 @@ import threading
 from queue import Queue
 
 from game import game
-from config import PORT
+from config import TCP_PORT, UDP_PORT
 
 import utils
 import main
@@ -17,6 +17,7 @@ names = [
 ]
 
 
+server_ip = ""
 # TCP related things
 tcp_recv_queue = Queue()
 tcp_thread = None
@@ -39,6 +40,11 @@ def disconnect():
     game.lsock.close()
     game.lsock = None
     tcp_thread.join()
+
+
+# UDP related things
+udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+udp_sock.connect(("0.0.0.0", 0))
 
 
 # Asks whether to host or join
@@ -77,7 +83,10 @@ class IpInputState():
             try:
                 game.lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 game.lsock.settimeout(5.0)
-                game.lsock.connect((self.ip, PORT))
+                game.lsock.connect((self.ip, TCP_PORT))
+
+                global server_ip
+                server_ip = self.ip
 
                 global tcp_thread
                 tcp_thread = threading.Thread(
@@ -103,6 +112,7 @@ class LobbyState():
     def __init__(self):
         game.player_name = random.choice(names)
         utils.send_tcp(game.lsock, ("n", game.player_name))
+        utils.send_tcp(game.lsock, ("a", udp_sock.getsockname()))
 
         options = ["Start game", "Leave lobby"]
 
@@ -147,6 +157,7 @@ class MultiplayerGameState():
     def __init__(self):
         utils.send_tcp(game.lsock, ("r", ""))
         self.current_word = ""
+        self.current_index = 0
         self.draw()
 
     def draw(self):
@@ -155,7 +166,8 @@ class MultiplayerGameState():
 
         # print words out
         game.stdscr.addstr(3, 5, game.player_name + ":")
-        game.stdscr.addstr(3, 25, self.current_word)
+        game.stdscr.addstr(3, 25 + self.current_index,
+                           self.current_word[self.current_index:])
 
         index = 1
         for player_name in game.player_list.values():
@@ -168,6 +180,19 @@ class MultiplayerGameState():
         game.stdscr.refresh()
 
     def update(self):
+        key = game.stdscr.getch()
+        if self.current_word:
+            if key == ord(self.current_word[self.current_index]):
+                self.current_index += 1
+                self.draw()
+
+                utils.send_udp(udp_sock,
+                               ("i", self.current_index),
+                               (server_ip, UDP_PORT))
+
+                if self.current_index >= len(self.current_word):
+                    self.current_word = ""
+
         if not tcp_recv_queue.empty():
             prefix, content = tcp_recv_queue.get()
 

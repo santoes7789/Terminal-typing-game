@@ -2,8 +2,8 @@ import socket
 import selectors
 import random
 
-from config import PORT
-from utils import send_tcp, receive_tcp
+from config import TCP_PORT, UDP_PORT
+from utils import send_tcp, receive_tcp, send_udp, receive_udp
 
 
 sel = selectors.DefaultSelector()
@@ -27,14 +27,16 @@ class Client():
         # Network
         self.sock = sock
         self.addr = addr
+        self.udp_addr = ()
 
         # Player info
         self.id = id
         self.name = ""
 
         # Game info
-        self.isAlive = True
+        self.alive = True
         self.ready = False  # ready for next word
+        self.char_index = 0
 
     def send(self, message):
         send_tcp(self.sock, message)
@@ -67,17 +69,22 @@ class Client():
                 self.name = content
                 send_player_list()
 
+            # gives udp address
+            elif prefix == "a":
+                self.udp_addr = content
+
             # sends message to chat
             elif prefix == "m":
                 msg = ("m", {"id": self.id, "message": content})
-                broadcast(msg)
+                broadcast_tcp(msg)
 
             # starts game
             elif prefix == "s":
                 msg = ("s", "")
-                broadcast(msg)
+                broadcast_tcp(msg)
                 in_lobby = False
                 print("GAME STARTED")
+
         else:
             # check if all players are ready
             if prefix == "r":
@@ -87,24 +94,24 @@ class Client():
                     send_new_word()
 
 
-def broadcast(message):
-    for conn in players:
-        conn.send(message)
+def broadcast_tcp(message):
+    for p in players:
+        p.send(message)
 
 
 def send_player_list():
     player_dict = {}
-    for conn in players:
-        player_dict[conn.id] = conn.name
+    for p in players:
+        player_dict[p.id] = p.name
 
     msg = ("p", player_dict)
-    broadcast(msg)
+    broadcast_tcp(msg)
 
 
 def send_new_word():
     word = random.choice(word_bank)
     msg = ("w", word)
-    broadcast(msg)
+    broadcast_tcp(msg)
 
 
 def accept(sock):
@@ -122,27 +129,69 @@ def accept(sock):
     sel.register(conn, selectors.EVENT_READ, data=client_obj)
 
 
-def init_server():
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    lsock.bind(("0.0.0.0", PORT))
-    lsock.listen()
+def broadcast_udp(message):
+    for p in players:
+        send_udp(udp_sock, message, p.udp_addr)
 
-    lsock.setblocking(False)
 
-    print("Server started!")
-    print("Listening on PORT:", PORT)
+def process_udp(data, addr):
+    prefix, content = data
 
-    sel.register(lsock, selectors.EVENT_READ)
+    if prefix == "i":
+        # create list
+        player_index_list = {}
+        for p in players:
+            if p.udp_addr == addr:
+                p.char_index = content
+            player_index_list[p.id] = p.char_index
+
+        broadcast_udp(player_index_list)
+
+
+def init_tcp_server():
+    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp_sock.bind(("0.0.0.0", TCP_PORT))
+    tcp_sock.listen()
+
+    tcp_sock.setblocking(False)
+
+    print("TCP Server started!")
+    print("Listening for TCP on PORT:", TCP_PORT)
+
+    sel.register(tcp_sock, selectors.EVENT_READ)
+    return tcp_sock
+
+
+def init_udp_server():
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_sock.bind(("0.0.0.0", UDP_PORT))
+
+    udp_sock.setblocking(False)
+
+    print("UDP Server started!")
+    print("Listening for UDP on PORT:", UDP_PORT)
+
+    sel.register(udp_sock, selectors.EVENT_READ)
+    return udp_sock
 
 
 def update_loop():
     while True:
         events = sel.select(timeout=None)
         for key, mask, in events:
-            if in_lobby and key.data is None:
-                accept(key.fileobj)
-            elif key.data:
+            # new connection
+            if key.fileobj is tcp_sock and in_lobby:
+                accept(tcp_sock)
+
+            # udp client message
+            elif key.fileobj is udp_sock:
+                data, addr = receive_udp(udp_sock)
+                print("(udp) receieved [", data, "] from ", addr)
+                # process_udp(data, addr)
+
+            # tcp client message
+            else:
                 key.data.read()
 
 
@@ -152,5 +201,6 @@ def generate_id():
     return next_id
 
 
-init_server()
+tcp_sock = init_tcp_server()
+udp_sock = init_udp_server()
 update_loop()
