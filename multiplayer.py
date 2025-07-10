@@ -26,7 +26,7 @@ class Network():
         self.tcp_sock.connect((ip, TCP_PORT))
 
         self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_sock.connect(("0.0.0.0", 0))  # connect where to get lan ip
+        self.udp_sock.connect((ip, 0))  # connect where to get lan ip
 
         self.recv_queue = Queue()
 
