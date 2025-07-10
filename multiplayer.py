@@ -175,8 +175,11 @@ class LobbyState():
 class MultiplayerGameState():
     def __init__(self):
         network.send_tcp(("r", ""))
+
         self.current_word = ""
         self.current_index = 0
+        self.finished = False
+
         self.draw()
 
     def draw(self):
@@ -201,7 +204,8 @@ class MultiplayerGameState():
 
     def update(self):
         key = game.stdscr.getch()
-        if self.current_word:
+
+        if not self.finished:
             if key == ord(self.current_word[self.current_index]):
                 self.current_index += 1
                 self.draw()
@@ -209,7 +213,7 @@ class MultiplayerGameState():
                 network.send_udp(("i", self.current_index))
 
                 if self.current_index >= len(self.current_word):
-                    self.current_word = ""
+                    self.finished = True
 
         if not network.recv_queue.empty():
             prefix, content = network.recv_queue.get()
