@@ -26,7 +26,7 @@ class Network():
         self.tcp_sock.connect((ip, TCP_PORT))
 
         self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_sock.connect(("8.8.8.8", 0))  # connect where to get lan ip
+        self.udp_sock.connect(("0.0.0.0", 0))  # connect where to get lan ip
 
         self.recv_queue = Queue()
 
@@ -43,16 +43,20 @@ class Network():
         try:
             while True:
                 message = utils.receive_tcp(self.tcp_sock)
+                utils.debug("(tcp) received :" + str(message))
                 self.recv_queue.put(message)
-        except Exception:
+        except Exception as e:
+            utils.debug("Error:" + str(e))
             utils.debug("Tcp thread stopping")
 
     def udp_recv_thread(self):
         try:
             while True:
                 message, addr = utils.receive_udp(self.udp_sock)
+                utils.debug("(udp) received :" + str(message))
                 self.recv_queue.put(message)
-        except Exception:
+        except Exception as e:
+            utils.debug("Error:" + str(e))
             utils.debug("Udp thread stopping")
 
     def send_tcp(self, message):
@@ -153,8 +157,8 @@ class LobbyState():
             if prefix == "p":
                 self.draw()
                 game.player_list = content
-                for index, name in enumerate(content.values()):
-                    game.stdscr.addstr(2 + index, 20, name)
+                for index, player_data in enumerate(content.values()):
+                    game.stdscr.addstr(2 + index, 20, player_data["name"])
 
             elif prefix == "s":
                 game.change_state(utils.PopupState(
@@ -184,13 +188,14 @@ class MultiplayerGameState():
         game.stdscr.addstr(3, 25 + self.current_index,
                            self.current_word[self.current_index:])
 
-        index = 1
-        for player_name in game.player_list.values():
-            if player_name != game.player_name:
-                game.stdscr.addstr(3 + index, 5, player_name + ":")
-                game.stdscr.addstr(3 + index, 25, self.current_word)
-
-                index += 1
+        ypos = 1
+        for player_data in game.player_list.values():
+            if player_data["name"] != game.player_name:
+                game.stdscr.addstr(3 + ypos, 5, player_data["name"] + ":")
+                game.stdscr.addstr(
+                    3 + ypos, 25 + player_data["word_index"],
+                    self.current_word[player_data["word_index"]:])
+                ypos += 1
 
         game.stdscr.refresh()
 
@@ -211,4 +216,8 @@ class MultiplayerGameState():
 
             if prefix == "w":
                 self.current_word = content
+                self.draw()
+            elif prefix == "i":
+                for id, word_index in content.items():
+                    game.player_list[id]["word_index"] = word_index
                 self.draw()

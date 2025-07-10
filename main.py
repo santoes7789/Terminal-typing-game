@@ -5,7 +5,7 @@ from game import game
 from utils import SelectScreen
 
 # Bugs:
-# When server closes nothing happens to clients
+# When server closes nothing happens to clients - the tcp closes but not udp thread
 
 
 class TitleState(SelectScreen):

@@ -38,14 +38,15 @@ class Client():
         self.ready = False  # ready for next word
         self.char_index = 0
 
-    def send(self, message):
+    def send(self, message, debug=True):
         send_tcp(self.sock, message)
-        print("(tcp) Sent [", message, "] to ", self.addr)
+        if debug:
+            print("(tcp) Sent", message, "to", self.addr)
 
     def read(self):
         try:
             message = receive_tcp(self.sock)
-            print("(tcp) receieved [", message, "] from ", self.addr)
+            print("(tcp) receieved", message, "from", self.addr)
             self.manage_request(message)
         except ConnectionResetError:
             self.close()
@@ -96,13 +97,15 @@ class Client():
 
 def broadcast_tcp(message):
     for p in players:
-        p.send(message)
+        p.send(message, debug=False)
+
+    print("(tcp) broadcast ", message)
 
 
 def send_player_list():
     player_dict = {}
     for p in players:
-        player_dict[p.id] = p.name
+        player_dict[p.id] = {"name": p.name, "word_index": 0}
 
     msg = ("p", player_dict)
     broadcast_tcp(msg)
@@ -133,6 +136,8 @@ def broadcast_udp(message):
     for p in players:
         send_udp(udp_sock, message, p.udp_addr)
 
+    print("(tcp) broadcast ", message)
+
 
 def process_udp(data, addr):
     prefix, content = data
@@ -145,7 +150,7 @@ def process_udp(data, addr):
                 p.char_index = content
             player_index_list[p.id] = p.char_index
 
-        broadcast_udp(player_index_list)
+        broadcast_udp(("i", player_index_list))
 
 
 def init_tcp_server():
@@ -187,8 +192,8 @@ def update_loop():
             # udp client message
             elif key.fileobj is udp_sock:
                 data, addr = receive_udp(udp_sock)
-                print("(udp) receieved [", data, "] from ", addr)
-                # process_udp(data, addr)
+                print("(udp) receieved", data, "from ", addr)
+                process_udp(data, addr)
 
             # tcp client message
             else:
