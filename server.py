@@ -5,6 +5,8 @@ import random
 from config import TCP_PORT, UDP_PORT
 from utils import send_tcp, receive_tcp, send_udp, receive_udp
 
+import time
+
 
 sel = selectors.DefaultSelector()
 
@@ -20,6 +22,14 @@ word_bank = [
     "fluctuate", "eagle", "zen", "mythology", "blip", "serendipity", "on",
     "wander", "crimson", "go", "reverberation", "elm"
 ]
+
+
+class GameData():
+    def __init__(self):
+        self.word_count = 0
+
+
+game = GameData()
 
 
 class Client():
@@ -87,11 +97,20 @@ class Client():
                 print("GAME STARTED")
 
         else:
-            # check if all players are ready
+            # check if all players are ready for new word
             if prefix == "r":
                 self.ready = True
 
-                if all(player.ready for player in players):
+                if all(p.ready for p in players if p.alive):
+                    send_new_word()
+
+            elif prefix == "d":
+                self.alive = False
+
+                if all(not p.alive for p in players):
+                    pass
+
+                elif all(p.ready for p in players if p.alive):
                     send_new_word()
 
 
@@ -113,8 +132,13 @@ def send_player_list():
 
 def send_new_word():
     word = random.choice(word_bank)
-    msg = ("w", word)
+    game.word_count += 1
+    msg = ("w", (game.word_count, word))
     broadcast_tcp(msg)
+
+    for p in players:
+        p.char_index = 0
+        p.ready = False
 
 
 def accept(sock):
@@ -150,7 +174,7 @@ def process_udp(data, addr):
                 p.char_index = content
             player_index_list[p.id] = p.char_index
 
-        broadcast_udp(("i", player_index_list))
+        broadcast_udp(("i", (game.word_count, player_index_list)))
 
 
 def init_tcp_server():
