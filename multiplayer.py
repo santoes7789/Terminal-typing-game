@@ -215,9 +215,18 @@ class MultiplayerGameState():
         game.stdscr.refresh()
 
     def draw_timer(self):
+        if self.remaining_time > 5:
+            color = 1
+        elif self.remaining_time > 2:
+            color = 2
+        elif self.remaining_time > 0:
+            color = 3
+        else:
+            color = 4
 
         game.stdscr.addstr(3, 60, " " * 6)
-        game.stdscr.addstr(3, 60, f"{self.remaining_time:.2f}")
+        game.stdscr.addstr(3, 60, f"{self.remaining_time:.2f}",
+                           curses.color_pair(color))
 
     def update(self):
         key = game.stdscr.getch()
