@@ -78,6 +78,7 @@ class Client():
             # gives name, sends complete player list to all
             if prefix == "n":
                 self.name = content
+                self.send(("i", self.id))
                 send_player_list()
 
             # gives udp address
@@ -98,18 +99,27 @@ class Client():
 
         else:
             # check if all players are ready for new word
+            # triggered when they finish word
             if prefix == "r":
                 self.ready = True
 
+                if content:
+                    t_remaining, t_taken = content
+
+                    broadcast_tcp(("t", (self.id, t_remaining)))
+
+                if all(not p.alive for p in players):
+                    pass
                 if all(p.ready for p in players if p.alive):
                     send_new_word()
 
             elif prefix == "d":
                 self.alive = False
 
+                broadcast_tcp(("d", self.id))
+
                 if all(not p.alive for p in players):
                     pass
-
                 elif all(p.ready for p in players if p.alive):
                     send_new_word()
 
