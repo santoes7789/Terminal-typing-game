@@ -189,9 +189,10 @@ class MultiplayerGameState():
 
         self.finished = True
 
-        for p in game.player_list.values():
+        for i, p in enumerate(game.player_list.values()):
             p["remaining_time"] = self.max_time
             p["alive"] = True
+            p["ypos"] = i
 
         # delta time stuff
         self.previous_time = time.time()
@@ -214,22 +215,20 @@ class MultiplayerGameState():
     def draw_words(self):
         self.word_win.clear()
 
-        ypos = 0
-        for player_data in game.player_list.values():
-            if player_data == game.me():
+        for p in game.player_list.values():
+            color = curses.color_pair(1) if p == game.me() else 0
+
+            if p["alive"]:
                 self.word_win.addstr(
-                    ypos, 0, player_data["name"] + ":", curses.color_pair(1))
+                    p["ypos"], 20 + p["word_index"], self.current_word[p["word_index"]:])
             else:
-                self.word_win.addstr(ypos, 0, player_data["name"] + ":")
-            self.word_win.addstr(
-                ypos, 20 + player_data["word_index"],
-                self.current_word[player_data["word_index"]:])
-            ypos += 1
+                color = curses.color_pair(4)
+            self.word_win.addstr(p["ypos"], 0, p["name"] + ":", color)
 
         self.word_win.noutrefresh()
 
     def draw_timer(self):
-        for i, p in enumerate(game.player_list.values()):
+        for p in game.player_list.values():
             if p["remaining_time"] > 5:
                 color = 1
             elif p["remaining_time"] > 2:
@@ -238,8 +237,9 @@ class MultiplayerGameState():
                 color = 3
             else:
                 color = 4
-            game.stdscr.addstr(3 + i, 60, " " * 5)  # clear the previous text
-            game.stdscr.addstr(3 + i, 60, f"{p["remaining_time"]:.2f}",
+            # clear the previous text
+            game.stdscr.addstr(3 + p["ypos"], 60, " " * 5)
+            game.stdscr.addstr(3 + p["ypos"], 60, f"{p["remaining_time"]:.2f}",
                                curses.color_pair(color))
         game.stdscr.noutrefresh()
 
@@ -274,7 +274,7 @@ class MultiplayerGameState():
                         ("r", (game.me("remaining_time"), self.time_taken)))
 
                     self.fx.add(utils.FXObject_Fade(
-                        0.5, 3, 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
+                        0.5, 3 + game.me("ypos"), 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
 
             if game.me("alive") and game.me("remaining_time") <= 0:
                 game.me()["alive"] = False
@@ -305,11 +305,14 @@ class MultiplayerGameState():
             elif prefix == "t":
                 id, stuff = content
                 game.player_list[id]["remaining_time"] = stuff
+                self.fx.add(utils.FXObject_Fade(
+                    0.5, 3 + game.player_list[id]["ypos"], 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
                 self.draw_timer()
 
             elif prefix == "d":
                 game.player_list[content]["remaining_time"] = 0
                 game.player_list[content]["alive"] = False
+                self.draw_timer()
 
         self.fx.update()
         curses.doupdate()
