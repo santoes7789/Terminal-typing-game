@@ -216,7 +216,11 @@ class MultiplayerGameState():
 
         ypos = 0
         for player_data in game.player_list.values():
-            self.word_win.addstr(ypos, 0, player_data["name"] + ":")
+            if player_data == game.me():
+                self.word_win.addstr(
+                    ypos, 0, player_data["name"] + ":", curses.color_pair(1))
+            else:
+                self.word_win.addstr(ypos, 0, player_data["name"] + ":")
             self.word_win.addstr(
                 ypos, 20 + player_data["word_index"],
                 self.current_word[player_data["word_index"]:])
