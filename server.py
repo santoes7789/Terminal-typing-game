@@ -5,8 +5,6 @@ import random
 from config import TCP_PORT, UDP_PORT
 from utils import send_tcp, receive_tcp, send_udp, receive_udp
 
-import time
-
 
 sel = selectors.DefaultSelector()
 
@@ -17,11 +15,26 @@ in_lobby = True
 next_id = 0
 
 # will delete later and use word bank but this is fine for now
-word_bank = [
-    "cat", "umbrella", "zebra", "quantum", "sky", "incredible", "do", "pixel",
-    "fluctuate", "eagle", "zen", "mythology", "blip", "serendipity", "on",
-    "wander", "crimson", "go", "reverberation", "elm"
-]
+
+
+class WordBank():
+    def __init__(self):
+        self.lines = []
+
+        with open("word_bank", "r") as file:
+            content = file.read()
+        sections = content.split("\n\n")
+
+        for i in range(len(sections)):
+            sec = sections[i].split("\n")
+            random.shuffle(sec)
+            self.lines.append(sec)
+
+    def get_word(self, difficulty):
+        return random.choice(self.lines[difficulty])
+
+
+word_bank = WordBank()
 
 
 class GameData():
@@ -141,7 +154,8 @@ def send_player_list():
 
 
 def send_new_word():
-    word = random.choice(word_bank)
+    difficulty = min(int(game.word_count/10), 7)
+    word = word_bank.get_word(difficulty)
     game.word_count += 1
     msg = ("w", (game.word_count, word))
     broadcast_tcp(msg)
