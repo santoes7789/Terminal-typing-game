@@ -1,5 +1,4 @@
 import curses
-import pickle
 import time
 from game import game
 
@@ -76,8 +75,23 @@ class PopupState():
         game.change_state(self.new_state())
 
 
-# effect type
-# 1 = fade out
+def init_colors():
+    curses.start_color()
+
+    curses.init_color(0, 0, 0, 0)  # Re-define color 0 as RGB(0,0,0)
+
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(3, 208, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
+
+    # greyscale pairs for fade effect
+    steps = 10
+    for i in range(steps):
+        grey = int(1000/steps * i)
+        curses.init_color(16 + i, grey, grey, grey)
+        curses.init_pair(5 + i, 16 + i, curses.COLOR_BLACK)
+
 
 class FX():
     def __init__(self):
@@ -119,45 +133,3 @@ class FXObject_Fade():
                            curses.color_pair(frame + 5))
         self.stdscr.noutrefresh()
         return 0
-
-
-def send_tcp(lsock, message):
-    message = pickle.dumps(message)
-
-    msg_length = len(message)
-
-    lsock.sendall(msg_length.to_bytes(4, "big") + message)
-
-
-def receive_tcp(lsock):
-    msg_length = lsock.recv(4)
-
-    if not msg_length:
-        raise ConnectionResetError
-
-    bytes_to_read = int.from_bytes(msg_length, "big")
-
-    recv_data = lsock.recv(bytes_to_read)
-
-    if not recv_data:
-        raise ConnectionResetError
-
-    recv_data = pickle.loads(recv_data)
-    return recv_data
-
-
-def send_udp(lsock, message, addr):
-    message = pickle.dumps(message)
-
-    lsock.sendto(message, addr)
-
-
-def receive_udp(lsock):
-    data, addr = lsock.recvfrom(1024)
-    data = pickle.loads(data)
-    return data, addr
-
-
-def debug(message):
-    with open("debug.log", "a") as f:
-        f.write(message + "\n")

@@ -3,7 +3,7 @@ import selectors
 import random
 
 from config import TCP_PORT, UDP_PORT
-from utils import send_tcp, receive_tcp, send_udp, receive_udp
+from utils.network import send_tcp, receive_tcp, send_udp, receive_udp
 
 
 sel = selectors.DefaultSelector()

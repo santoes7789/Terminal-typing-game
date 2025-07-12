@@ -6,7 +6,7 @@ from queue import Queue
 from game import game
 from config import TCP_PORT, UDP_PORT
 
-import utils
+from utils import screen, network, helpers
 import main
 import random
 import time
@@ -43,28 +43,28 @@ class Network():
         self.tcp_sock.settimeout(None)
         try:
             while True:
-                message = utils.receive_tcp(self.tcp_sock)
-                utils.debug("(tcp) received :" + str(message))
+                message = network.receive_tcp(self.tcp_sock)
+                helpers.debug("(tcp) received :" + str(message))
                 self.recv_queue.put(message)
         except Exception as e:
-            utils.debug("Error:" + str(e))
-            utils.debug("Tcp thread stopping")
+            helpers.debug("Error:" + str(e))
+            helpers.debug("Tcp thread stopping")
 
     def udp_recv_thread(self):
         try:
             while True:
-                message, addr = utils.receive_udp(self.udp_sock)
-                utils.debug("(udp) received :" + str(message))
+                message, addr = network.receive_udp(self.udp_sock)
+                helpers.debug("(udp) received :" + str(message))
                 self.recv_queue.put(message)
         except Exception as e:
-            utils.debug("Error:" + str(e))
-            utils.debug("Udp thread stopping")
+            helpers.debug("Error:" + str(e))
+            helpers.debug("Udp thread stopping")
 
     def send_tcp(self, message):
-        utils.send_tcp(self.tcp_sock, message)
+        network.send_tcp(self.tcp_sock, message)
 
     def send_udp(self, message):
-        utils.send_udp(self.udp_sock, message, (self.ip, UDP_PORT))
+        network.send_udp(self.udp_sock, message, (self.ip, UDP_PORT))
 
     def disconnect(self):
         self.tcp_sock.shutdown(socket.SHUT_RDWR)
@@ -81,7 +81,7 @@ network = Network()
 
 
 # Asks whether to host or join
-class MultiplayerMenuState(utils.SelectScreen):
+class MultiplayerMenuState(screen.SelectScreen):
     def __init__(self):
         options = ["Join",
                    "Host (doesnt work)",
@@ -117,9 +117,9 @@ class IpInputState():
                 network.initialize(self.ip)
                 game.change_state(LobbyState())
             except Exception as e:
-                game.change_state(utils.PopupState("Could not connect to server",
-                                                   main.TitleState))
-                utils.debug(str(e))
+                game.change_state(screen.PopupState("Could not connect to server",
+                                                    main.TitleState))
+                helpers.debug(str(e))
         elif key != -1:
             if key in (curses.KEY_BACKSPACE, 8):
                 self.ip = self.ip[:-1]
@@ -139,7 +139,7 @@ class LobbyState():
 
         callbacks = [self.start_game, self.leave_lobby]
 
-        self.options = utils.OptionSelect(
+        self.options = screen.OptionSelect(
             game.stdscr, options, callbacks, 2, 0)
 
         self.draw()
@@ -162,7 +162,7 @@ class LobbyState():
                     game.stdscr.addstr(2 + index, 20, player_data["name"])
 
             elif prefix == "s":
-                game.change_state(utils.PopupState(
+                game.change_state(screen.PopupState(
                     "Game starting!!", MultiplayerGameState))
             elif prefix == "i":
                 game.my_id = content
@@ -201,7 +201,7 @@ class MultiplayerGameState():
 
         self.draw()
 
-        self.fx = utils.FX()
+        self.fx = screen.FX()
 
     def draw(self):
         game.stdscr.clear()
@@ -279,7 +279,7 @@ class MultiplayerGameState():
                     network.send_tcp(
                         ("r", (game.me("remaining_time"), self.time_taken)))
 
-                    self.fx.add(utils.FXObject_Fade(
+                    self.fx.add(screen.FXObject_Fade(
                         0.5, 3 + game.me("ypos"), 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
 
             if game.me("alive") and game.me("remaining_time") <= 0:
@@ -311,7 +311,7 @@ class MultiplayerGameState():
             elif prefix == "t":
                 id, stuff = content
                 game.player_list[id]["remaining_time"] = stuff
-                self.fx.add(utils.FXObject_Fade(
+                self.fx.add(screen.FXObject_Fade(
                     0.5, 3 + game.player_list[id]["ypos"], 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
                 self.draw_timer()
 
