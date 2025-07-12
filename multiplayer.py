@@ -223,7 +223,13 @@ class MultiplayerGameState():
                     p["ypos"], 20 + p["word_index"], self.current_word[p["word_index"]:])
             else:
                 color = curses.color_pair(4)
+
             self.word_win.addstr(p["ypos"], 0, p["name"] + ":", color)
+
+        # underline on current character
+        if game.me("word_index") < len(self.current_word):
+            self.word_win.addstr(game.me("ypos"), 20 + game.me("word_index"),
+                                 self.current_word[game.me("word_index")], curses.A_UNDERLINE)
 
         self.word_win.noutrefresh()
 
