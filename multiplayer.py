@@ -1,10 +1,6 @@
 import curses
-import socket
-import threading
-from queue import Queue
 
 from game import game
-from config import TCP_PORT, UDP_PORT
 
 from utils import screen, network, helpers
 import main
@@ -18,66 +14,7 @@ names = [
 ]
 
 
-class Network():
-    def initialize(self, ip):
-        self.ip = ip
-
-        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_sock.settimeout(5.0)
-        self.tcp_sock.connect((ip, TCP_PORT))
-
-        self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_sock.connect((ip, 0))  # connect where to get lan ip
-
-        self.recv_queue = Queue()
-
-        self.tcp_thread = threading.Thread(
-            target=self.tcp_recv_thread, daemon=True)
-        self.tcp_thread.start()
-
-        self.udp_thread = threading.Thread(
-            target=self.udp_recv_thread, daemon=True)
-        self.udp_thread.start()
-
-    def tcp_recv_thread(self):
-        self.tcp_sock.settimeout(None)
-        try:
-            while True:
-                message = network.receive_tcp(self.tcp_sock)
-                helpers.debug("(tcp) received :" + str(message))
-                self.recv_queue.put(message)
-        except Exception as e:
-            helpers.debug("Error:" + str(e))
-            helpers.debug("Tcp thread stopping")
-
-    def udp_recv_thread(self):
-        try:
-            while True:
-                message, addr = network.receive_udp(self.udp_sock)
-                helpers.debug("(udp) received :" + str(message))
-                self.recv_queue.put(message)
-        except Exception as e:
-            helpers.debug("Error:" + str(e))
-            helpers.debug("Udp thread stopping")
-
-    def send_tcp(self, message):
-        network.send_tcp(self.tcp_sock, message)
-
-    def send_udp(self, message):
-        network.send_udp(self.udp_sock, message, (self.ip, UDP_PORT))
-
-    def disconnect(self):
-        self.tcp_sock.shutdown(socket.SHUT_RDWR)
-        self.tcp_sock.close()
-
-        self.udp_sock.shutdown(socket.SHUT_RDWR)
-        self.udp_sock.close()
-
-        self.udp_thread.join()
-        self.tcp_thread.join()
-
-
-network = Network()
+network_obj = network.Network()
 
 
 # Asks whether to host or join
@@ -114,7 +51,7 @@ class IpInputState():
         key = game.stdscr.getch()
         if key in (10, 13):
             try:
-                network.initialize(self.ip)
+                network_obj.initialize(self.ip)
                 game.change_state(LobbyState())
             except Exception as e:
                 game.change_state(screen.PopupState("Could not connect to server",
@@ -132,8 +69,8 @@ class IpInputState():
 class LobbyState():
     def __init__(self):
         game.my_name = random.choice(names)
-        network.send_tcp(("n", game.my_name))
-        network.send_tcp(("a", network.udp_sock.getsockname()))
+        network_obj.send_tcp(("n", game.my_name))
+        network_obj.send_tcp(("a", network_obj.udp_sock.getsockname()))
 
         options = ["Start game", "Leave lobby"]
 
@@ -153,8 +90,8 @@ class LobbyState():
 
     def update(self):
         self.options.update_loop()
-        if not network.recv_queue.empty():
-            prefix, content = network.recv_queue.get()
+        if not network_obj.recv_queue.empty():
+            prefix, content = network_obj.recv_queue.get()
             if prefix == "p":
                 self.draw()
                 game.player_list = content
@@ -168,16 +105,16 @@ class LobbyState():
                 game.my_id = content
 
     def start_game(self):
-        network.send_tcp(("s", ""))
+        network_obj.send_tcp(("s", ""))
 
     def leave_lobby(self):
-        network.disconnect()
+        network_obj.disconnect()
         game.change_state(main.TitleState())
 
 
 class MultiplayerGameState():
     def __init__(self):
-        network.send_tcp(("r", None))
+        network_obj.send_tcp(("r", None))
 
         # game settings
         self.max_time = 10
@@ -269,14 +206,14 @@ class MultiplayerGameState():
                 curr_i = game.me("word_index")
                 self.draw_words()
 
-                network.send_udp(("i", curr_i))
+                network_obj.send_udp(("i", curr_i))
 
                 if curr_i >= len(self.current_word):
                     game.me()["remaining_time"] = min(self.max_time,
                                                       game.me("remaining_time") + self.bonus_time)
 
                     self.finished = True
-                    network.send_tcp(
+                    network_obj.send_tcp(
                         ("r", (game.me("remaining_time"), self.time_taken)))
 
                     self.fx.add(screen.FXObject_Fade(
@@ -284,10 +221,10 @@ class MultiplayerGameState():
 
             if game.me("alive") and game.me("remaining_time") <= 0:
                 game.me()["alive"] = False
-                network.send_tcp(("d", ""))
+                network_obj.send_tcp(("d", ""))
 
-        if not network.recv_queue.empty():
-            prefix, content = network.recv_queue.get()
+        if not network_obj.recv_queue.empty():
+            prefix, content = network_obj.recv_queue.get()
 
             if prefix == "w":
 

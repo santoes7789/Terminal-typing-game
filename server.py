@@ -234,8 +234,9 @@ def update_loop():
         events = sel.select(timeout=None)
         for key, mask, in events:
             # new connection
-            if key.fileobj is tcp_sock and in_lobby:
-                accept(tcp_sock)
+            if key.fileobj is tcp_sock:
+                if in_lobby:
+                    accept(tcp_sock)
 
             # udp client message
             elif key.fileobj is udp_sock:
