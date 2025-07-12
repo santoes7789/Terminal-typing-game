@@ -177,6 +177,10 @@ class MultiplayerGameState():
     def __init__(self):
         network.send_tcp(("r", ""))
 
+        # game settings
+        self.max_time = 10
+        self.bonus_time = 1
+
         self.current_word = ""  # Word player is typing
         self.current_word_index = 1  # Count or index of current word
         self.current_index = 0  # Index of character player is on
@@ -184,37 +188,48 @@ class MultiplayerGameState():
         self.finished = True
         self.alive = True
 
-        self.max_time = 10
         self.remaining_time = self.max_time
 
         # delta time stuff
         self.previous_time = time.time()
 
+        self.word_win = curses.newwin(len(game.player_list), 35, 3, 5)
+
         self.draw()
+
+        self.fx = utils.FX()
 
     def draw(self):
         game.stdscr.clear()
         game.stdscr.addstr(0, 0, "Game")
 
+        self.draw_words()
+        self.draw_timer()
+
+        curses.doupdate()
+
+    def draw_words(self):
+        self.word_win.clear()
+
         # print words out
-        game.stdscr.addstr(3, 5, game.player_name + ":")
-        game.stdscr.addstr(3, 25 + self.current_index,
-                           self.current_word[self.current_index:])
+        self.word_win.addstr(0, 0, game.player_name + ":")
+        self.word_win.addstr(0, 20 + self.current_index,
+                             self.current_word[self.current_index:])
 
         ypos = 1
         for player_data in game.player_list.values():
             if player_data["name"] != game.player_name:
-                game.stdscr.addstr(3 + ypos, 5, player_data["name"] + ":")
-                game.stdscr.addstr(
-                    3 + ypos, 24, str(player_data["word_index"]))
-                game.stdscr.addstr(
-                    3 + ypos, 25 + player_data["word_index"],
+                self.word_win.addstr(ypos, 0, player_data["name"] + ":")
+                self.word_win.addstr(
+                    ypos, 20 + player_data["word_index"],
                     self.current_word[player_data["word_index"]:])
                 ypos += 1
 
-        game.stdscr.refresh()
+        self.word_win.noutrefresh()
 
     def draw_timer(self):
+        game.stdscr.addstr(3, 60, " " * 5)  # clear the previous text
+
         if self.remaining_time > 5:
             color = 1
         elif self.remaining_time > 2:
@@ -224,17 +239,22 @@ class MultiplayerGameState():
         else:
             color = 4
 
-        game.stdscr.addstr(3, 60, " " * 6)
         game.stdscr.addstr(3, 60, f"{self.remaining_time:.2f}",
                            curses.color_pair(color))
 
+        game.stdscr.noutrefresh()
+
     def update(self):
+        currentTime = time.time()
+        deltaTime = currentTime - self.previous_time
+        self.previous_time = currentTime
+
         key = game.stdscr.getch()
 
         if not self.finished:
             if key == ord(self.current_word[self.current_index]):
                 self.current_index += 1
-                self.draw()
+                self.draw_words()
 
                 network.send_udp(("i", self.current_index))
 
@@ -242,6 +262,19 @@ class MultiplayerGameState():
                     self.finished = True
                     self.current_word_index += 1
                     network.send_tcp(("r", 1))
+
+                    self.fx.add(utils.FXObject_Fade(
+                        0.5, 3, 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
+
+                    self.remaining_time += self.bonus_time
+
+            if self.alive:
+                self.remaining_time -= deltaTime
+
+                if self.remaining_time <= 0:
+                    self.alive = False
+                    network.send_tcp(("d", ""))
+                self.draw_timer()
 
         if not network.recv_queue.empty():
             prefix, content = network.recv_queue.get()
@@ -255,24 +288,15 @@ class MultiplayerGameState():
                 for player_data in game.player_list.values():
                     player_data["word_index"] = 0
 
-                self.draw()
+                self.draw_words()
 
             elif prefix == "i":
                 w_index, stuff = content
                 if w_index == self.current_word_index:
                     for id, char_index in stuff.items():
                         game.player_list[id]["word_index"] = char_index
-                self.draw()
 
-        if self.alive:
-            currentTime = time.time()
-            deltaTime = currentTime - self.previous_time
-            self.previous_time = currentTime
+                self.draw_words()
 
-            self.remaining_time -= deltaTime
-
-            if self.remaining_time <= 0:
-                self.alive = False
-                network.send_tcp(("d", ""))
-
-            self.draw_timer()
+        self.fx.update()
+        curses.doupdate()

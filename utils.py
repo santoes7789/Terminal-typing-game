@@ -76,6 +76,51 @@ class PopupState():
         game.change_state(self.new_state())
 
 
+# effect type
+# 1 = fade out
+
+class FX():
+    def __init__(self):
+        self.objects = []
+
+    def add(self, obj):
+        self.objects.append(obj)
+
+    def update(self):
+        for o in self.objects:
+            if o.draw():
+                self.objects.remove(o)
+
+
+class FXObject_Fade():
+    def __init__(self, duration, y, x, message, stdscr):
+        self.time = 0
+        self.duration = duration
+        self.y = y
+        self.x = x
+        self.message = message
+        self.stdscr = stdscr
+
+        self.previous_time = time.time()
+
+    def draw(self):
+        currentTime = time.time()
+        deltaTime = currentTime - self.previous_time
+        self.previous_time = currentTime
+
+        self.time += deltaTime
+
+        if self.time >= self.duration:
+            self.stdscr.addstr(self.y, self.x, " " * len(self.message))
+            return 1
+
+        frame = 9 - (int(self.time/self.duration * 10))
+        self.stdscr.addstr(self.y, self.x, self.message,
+                           curses.color_pair(frame + 5))
+        self.stdscr.noutrefresh()
+        return 0
+
+
 def send_tcp(lsock, message):
     message = pickle.dumps(message)
 

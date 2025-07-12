@@ -26,10 +26,20 @@ def main(stdscr):
     curses.curs_set(0)
     curses.start_color()
 
+    curses.init_color(0, 0, 0, 0)  # Re-define color 0 as RGB(0,0,0)
+
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(3, 208, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
+
+    # greyscale pairs for fade effect
+    steps = 10
+    for i in range(steps):
+        grey = int(1000/steps * i)
+        curses.init_color(16 + i, grey, grey, grey)
+        curses.init_pair(5 + i, 16 + i, curses.COLOR_BLACK)
+
     stdscr.nodelay(True)
 
     game.stdscr = stdscr
