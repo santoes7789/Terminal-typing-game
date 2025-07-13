@@ -242,7 +242,8 @@ class MultiplayerGameState():
                 w_index, stuff = content
                 if w_index == self.current_word_count:
                     for id, char_index in stuff.items():
-                        game.player_list[id]["word_index"] = char_index
+                        if id != game.my_id:
+                            game.player_list[id]["word_index"] = char_index
                 self.draw_words()
 
             elif prefix == "t":
