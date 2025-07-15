@@ -1,6 +1,6 @@
 import curses
 
-from game import game
+from game import game, Phrase
 
 from utils import screen, network, helpers
 import main
@@ -51,7 +51,8 @@ class IpInputState():
         key = game.stdscr.getch()
         if key in (10, 13):
             try:
-                network_obj.initialize(self.ip)
+                game.my_name = random.choice(names)
+                network_obj.initialize(self.ip, game.my_name)
                 game.change_state(LobbyState())
             except Exception as e:
                 game.change_state(screen.PopupState("Could not connect to server",
@@ -68,9 +69,6 @@ class IpInputState():
 
 class LobbyState():
     def __init__(self):
-        game.my_name = random.choice(names)
-        network_obj.send_tcp(("n", game.my_name))
-        network_obj.send_tcp(("a", network_obj.udp_sock.getsockname()))
 
         options = ["Start game", "Leave lobby"]
 
@@ -85,6 +83,10 @@ class LobbyState():
         game.stdscr.clear()
         game.stdscr.addstr(0, 0, "Lobby")
         game.stdscr.addstr(1, 20, "Players:")
+
+        for index, player_data in enumerate(game.player_list.values()):
+            game.stdscr.addstr(2 + index, 20, player_data["name"])
+
         game.stdscr.refresh()
         self.options.draw()
 
@@ -93,10 +95,8 @@ class LobbyState():
         if not network_obj.recv_queue.empty():
             prefix, content = network_obj.recv_queue.get()
             if prefix == "p":
-                self.draw()
                 game.player_list = content
-                for index, player_data in enumerate(content.values()):
-                    game.stdscr.addstr(2 + index, 20, player_data["name"])
+                self.draw()
 
             elif prefix == "s":
                 game.change_state(screen.PopupState(
@@ -120,9 +120,8 @@ class MultiplayerGameState():
         self.max_time = 10
         self.bonus_time = 1
 
-        self.time_taken = 0
-        self.current_word = ""  # Word player is typing
-        self.current_word_count = 1  # Count or index of current word
+        self.cp = None  # Word player is typing
+        self.cp_count = 1  # Count or index of current word
 
         self.finished = True
 
@@ -155,19 +154,20 @@ class MultiplayerGameState():
         for p in game.player_list.values():
             color = curses.color_pair(1) if p == game.me() else 0
 
-            if p["alive"]:
+            if p["alive"] and self.cp:
                 self.word_win.addstr(
-                    p["ypos"], 20 + p["word_index"], self.current_word[p["word_index"]:])
+                    p["ypos"], 20 + p["word_index"], self.cp.phrase[p["word_index"]:])
             else:
                 color = curses.color_pair(4)
 
             self.word_win.addstr(p["ypos"], 0, p["name"] + ":", color)
 
         # underline on current character
-        if game.me("alive"):
-            if game.me("word_index") < len(self.current_word):
-                self.word_win.addstr(game.me("ypos"), 20 + game.me("word_index"),
-                                     self.current_word[game.me("word_index")], curses.A_UNDERLINE)
+        if game.me("alive") and self.cp:
+            i = game.me("word_index")
+            if game.me("word_index") < len(self.cp.phrase):
+                self.word_win.addstr(
+                    game.me("ypos"), 20 + i, self.cp.phrase[i], curses.A_UNDERLINE)
 
         self.word_win.noutrefresh()
 
@@ -190,47 +190,57 @@ class MultiplayerGameState():
     def update(self):
         currentTime = time.time()
         deltaTime = currentTime - self.previous_time
-        self.time_taken += deltaTime
         self.previous_time = currentTime
 
         key = game.stdscr.getch()
+        if self.cp:
+            # update timer:
+            for p in game.player_list.values():
+                if p["word_index"] < len(self.cp.phrase) and p["alive"]:
+                    p["remaining_time"] = max(
+                        0, p["remaining_time"] - deltaTime)
+                    self.draw_timer()
 
-        # update timer:
-        for p in game.player_list.values():
-            if p["word_index"] < len(self.current_word) and p["alive"]:
-                p["remaining_time"] = max(0, p["remaining_time"] - deltaTime)
-                self.draw_timer()
+            if not self.finished and game.me("alive"):
+                if self.cp.type_char(key):
+                    game.me()["word_index"] += 1
+                    self.draw_words()
 
-        if not self.finished and game.me("alive"):
-            if key == ord(self.current_word[game.me("word_index")]):
-                game.me()["word_index"] += 1
-                curr_i = game.me("word_index")
-                self.draw_words()
+                    curr_i = game.me("word_index")
 
-                network_obj.send_udp(("i", curr_i))
+                    network_obj.send_udp(("i", curr_i))
 
-                if curr_i >= len(self.current_word):
-                    game.me()["remaining_time"] = min(self.max_time,
-                                                      game.me("remaining_time") + self.bonus_time)
+                    # IF player finishes phrase
+                    if curr_i >= len(self.cp.phrase):
+                        self.finished = True
+                        self.cp.finish()
 
-                    self.finished = True
-                    network_obj.send_tcp(
-                        ("r", (game.me("remaining_time"), self.time_taken)))
+                        # Add bonus time and update server
+                        game.me()["remaining_time"] = min(self.max_time,
+                                                          game.me("remaining_time") + self.bonus_time)
+                        network_obj.send_tcp(
+                            ("r", (game.me("remaining_time"),
+                                   self.cp.time_taken())))
 
-                    self.fx.add(screen.FXObject_Fade(
-                        0.5, 3 + game.me("ypos"), 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
+                        # Show bonus time text
+                        self.fx.add(screen.FXObject_Fade(
+                            0.5, 3 + game.me("ypos"), 65, f"(+{self.bonus_time:.2f}s)", game.stdscr))
 
-            if game.me("alive") and game.me("remaining_time") <= 0:
-                game.me()["alive"] = False
-                network_obj.send_tcp(("d", ""))
+                # If you run out of time
+                if game.me("alive") and game.me("remaining_time") <= 0:
+                    game.me()["alive"] = False
+                    self.cp.finish()
+                    network_obj.send_tcp(("d", ""))
 
         if not network_obj.recv_queue.empty():
+
             prefix, content = network_obj.recv_queue.get()
 
             if prefix == "w":
-
-                self.current_word_count, self.current_word = content
-                self.time_taken = 0
+                self.cp_count, phrase = content
+                self.cp = Phrase(phrase)
+                if game.me("alive"):
+                    game.phrases.append(self.cp)
 
                 self.finished = False
 
@@ -241,7 +251,7 @@ class MultiplayerGameState():
 
             elif prefix == "i":
                 w_index, stuff = content
-                if w_index == self.current_word_count:
+                if w_index == self.cp_count:
                     for id, char_index in stuff.items():
                         if id != game.my_id:
                             game.player_list[id]["word_index"] = char_index
@@ -258,6 +268,55 @@ class MultiplayerGameState():
                 game.player_list[content]["remaining_time"] = 0
                 game.player_list[content]["alive"] = False
                 self.draw_timer()
+            elif prefix == "s":
+                game.change_state(screen.PopupState(
+                    "Game Ended!", ScoreScreenState))
 
         self.fx.update()
         curses.doupdate()
+
+
+class ScoreScreenState():
+    def __init__(self):
+        game.stdscr.clear()
+        game.stdscr.addstr(0, 0, "Score Screen")
+        game.stdscr.addstr(1, 0, "Getting results...")
+        network_obj.send_tcp(("q", {"wpm": game.get_wpm(),
+                                    "acc": game.get_accuracy(),
+                                    "avg_r": game.get_avg_reaction(),
+                                    "score": game.get_score()}))
+        game.stdscr.refresh()
+        self.data = None
+        self.options = screen.OptionSelect(game.stdscr,
+                                           ["Leave game", "Re-join lobby"],
+                                           [None,
+                                            lambda: game.change_state(LobbyState())],
+                                           10, 0)
+
+    def draw(self):
+        if not self.data:
+            return
+        game.stdscr.clear()
+        game.stdscr.addstr(0, 0, "Score Screen")
+        game.stdscr.addstr(1, 15, "Accuracy:")
+        game.stdscr.addstr(1, 30, "Score:")
+        game.stdscr.addstr(1, 40, "Speed:")
+        game.stdscr.addstr(1, 50, "Avg Reaction Time:")
+        for k, v in self.data.items():
+            ypos = game.player_list[k]["ypos"] + 2
+            name = game.player_list[k]["name"]
+            game.stdscr.addstr(ypos, 0, name)
+            game.stdscr.addstr(ypos, 15, f"{v["acc"]:.2f}%")
+            game.stdscr.addstr(ypos, 30, f"{v["score"]}")
+            game.stdscr.addstr(ypos, 40, f"{v["wpm"]:.0f} WPM")
+            game.stdscr.addstr(ypos, 50, f"{v["avg_r"]:.4f}s")
+        self.options.draw()
+        game.stdscr.refresh()
+
+    def update(self):
+        self.options.update_loop()
+        if not network_obj.recv_queue.empty():
+            prefix, content = network_obj.recv_queue.get()
+            if prefix == "q":
+                self.data = content
+                self.draw()

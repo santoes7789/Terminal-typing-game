@@ -33,7 +33,7 @@ class OptionSelect():
         for index, text in enumerate(self.options):
             self.stdscr.addstr(index + self.y, 3 + self.x, text)
 
-        self.stdscr.addch(self.choice + 2, self.x + 1, '>')
+        self.stdscr.addch(self.choice + self.y, self.x + 1, '>')
         self.stdscr.refresh()
 
     def update_loop(self):
@@ -48,9 +48,9 @@ class OptionSelect():
                 self.callback[self.choice]()
                 return
             for i in range(0, len(self.options)):
-                self.stdscr.addch(i + 2, self.x + 1, ' ')
+                self.stdscr.addch(i + self.y, self.x + 1, ' ')
 
-            self.stdscr.addch(self.choice + 2, self.x + 1, '>')
+            self.stdscr.addch(self.choice + self.y, self.x + 1, '>')
 
 
 class PopupState():

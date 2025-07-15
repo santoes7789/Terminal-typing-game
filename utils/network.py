@@ -9,7 +9,7 @@ from utils import helpers
 
 
 class Network():
-    def initialize(self, ip):
+    def initialize(self, ip, name):
         self.ip = ip
 
         self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,6 +28,9 @@ class Network():
         self.udp_thread = threading.Thread(
             target=self.udp_recv_thread, daemon=True)
         self.udp_thread.start()
+
+        self.send_tcp(("n", name))
+        self.send_tcp(("a", self.udp_sock.getsockname()))
 
     def tcp_recv_thread(self):
         self.tcp_sock.settimeout(None)

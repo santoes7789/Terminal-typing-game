@@ -40,6 +40,9 @@ word_bank = WordBank()
 class GameData():
     def __init__(self):
         self.word_count = 0
+        self.stats = {}
+        for p in players:
+            p.reset_game_info()
 
 
 game = GameData()
@@ -56,7 +59,9 @@ class Client():
         self.id = id
         self.name = ""
 
-        # Game info
+        self.reset_game_info()
+
+    def reset_game_info(self):
         self.alive = True
         self.ready = False  # ready for next word
         self.char_index = 0
@@ -110,6 +115,16 @@ class Client():
                 in_lobby = False
                 print("GAME STARTED")
 
+                # reset game data
+                global game
+                game = GameData()
+
+            elif prefix == "q":
+                game.stats[self.id] = content
+
+                if len(game.stats) == len(players):
+                    broadcast_tcp(("q", game.stats))
+
         else:
             # check if all players are ready for new word
             # triggered when they finish word
@@ -122,7 +137,8 @@ class Client():
                     broadcast_tcp(("t", (self.id, t_remaining)))
 
                 if all(not p.alive for p in players):
-                    pass
+                    broadcast_tcp(("s", None))
+                    in_lobby = True
                 if all(p.ready for p in players if p.alive):
                     send_new_word()
 
@@ -132,7 +148,8 @@ class Client():
                 broadcast_tcp(("d", self.id))
 
                 if all(not p.alive for p in players):
-                    pass
+                    broadcast_tcp(("s", None))
+                    in_lobby = True
                 elif all(p.ready for p in players if p.alive):
                     send_new_word()
 
